@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MIMO Guardian: Final Demo</title>
+    
+    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- DESIGN SYSTEM --- */
+        :root { --bg: #050505; --card: #111; --primary: #00f2ff; --accent: #ff003c; --green: #00ff9d; --text: #ffffff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; user-select: none; }
+        body { margin: 0; padding: 0; background-color: var(--bg); color: var(--text); font-family: 'Tajawal', sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        body[dir="ltr"] { font-family: 'Roboto', sans-serif; }
+        
+        .screen { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; flex-direction: column; transition: opacity 0.4s ease; opacity: 0; pointer-events: none; z-index: 0; }
+        .screen.active { opacity: 1; pointer-events: auto; z-index: 10; }
+
+        #splash { z-index: 10000; background: #000; align-items: center; justify-content: center; }
+        .loader { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
+
+        #lang-screen { z-index: 9500; background: #050505; align-items: center; justify-content: center; }
+        .lang-btn { width: 80%; max-width: 300px; padding: 20px; margin: 10px; background: #111; border: 1px solid #333; color: #fff; border-radius: 15px; font-size: 1.2rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 15px; transition: 0.2s; }
+        .lang-btn.ar { border-right: 5px solid var(--green); }
+        .lang-btn.en { border-left: 5px solid var(--primary); font-family: 'Roboto', sans-serif; }
+
+        #auth-screen { z-index: 9000; background: #080808; align-items: center; justify-content: center; }
+        .auth-box { background: var(--card); padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .auth-input { width: 100%; padding: 15px; margin: 10px 0; background: #000; border: 1px solid #333; color: #fff; border-radius: 10px; font-size: 1rem; text-align: center; }
+        .main-btn { width: 100%; padding: 15px; background: var(--primary); color: #000; border: none; border-radius: 10px; font-weight: 900; cursor: pointer; font-size: 1.1rem; margin-top: 10px; }
+
+        #app-container { background: #000; align-items: center; justify-content: flex-start; padding-top: 20px; }
+        header { width: 100%; padding: 0 25px 20px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.8rem; font-weight: 900; color: #fff; letter-spacing: 1px; }
+
+        .status-card { width: 90%; max-width: 400px; padding: 20px; background: #111; border: 1px solid #222; border-radius: 20px; margin-bottom: 20px; text-align: center; }
+        .grid-data { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .data-item { background: #0a0a0a; padding: 15px 10px; border-radius: 12px; border: 1px solid #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .data-val { font-size: 1.3rem; font-weight: bold; color: var(--primary); font-family: monospace; }
+        .data-label { font-size: 0.75rem; color: #666; margin-top: 5px; }
+
+        .start-btn { width: 90%; max-width: 400px; padding: 25px; background: var(--primary); color: #000; font-size: 1.6rem; font-weight: 900; border: none; border-radius: 18px; cursor: pointer; box-shadow: 0 0 40px rgba(0, 242, 255, 0.15); transition: 0.3s; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .start-btn.active { background: var(--green); box-shadow: 0 0 40px rgba(0, 255, 157, 0.2); }
+
+        .sim-bar { width: 90%; max-width: 400px; display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px; }
+        .sim-chip { background: #1a1a1a; border: 1px solid #333; color: #ccc; padding: 10px 20px; border-radius: 25px; font-size: 0.85rem; white-space: nowrap; cursor: pointer; }
+
+        /* ALERT SCREEN */
+        #doctor-screen { z-index: 50; background: rgba(5, 5, 5, 0.98); align-items: center; justify-content: flex-start; padding-top: 60px; }
+        .alert-header { width: 100%; padding: 25px; background: var(--accent); color: #fff; text-align: center; font-weight: bold; font-size: 1.4rem; animation: flash 1s infinite; border-bottom: 4px solid #a00; position: absolute; top: 0; left: 0; z-index: 60; }
+        
+        .question-box { margin-top: 30px; text-align: center; padding: 20px; }
+        .question-text { font-size: 1.4rem; color: var(--primary); margin-bottom: 10px; font-weight: bold; line-height: 1.4; }
+        .listening-indicator { font-size: 0.9rem; color: #aaa; animation: pulse 1s infinite; display: none; }
+        
+        .countdown-circle { margin-top: 20px; width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--accent); background: #000; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 30px var(--accent); }
+        
+        #txt-assurance { margin-top: 20px; color: var(--green); font-size: 1.1rem; text-align: center; display: none; animation: flash 2s infinite; padding: 15px; border: 1px solid var(--green); border-radius: 10px; background: rgba(0, 255, 157, 0.1); width: 90%; }
+
+        .cancel-btn-center { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: #222; border: 2px solid #444; color: #fff; padding: 15px 40px; border-radius: 50px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; gap: 10px; }
+
+        .widget-area { width: 100%; height: 40%; background: transparent; position: relative; margin-top: 20px; display: none; border-top: 1px solid #333; }
+        elevenlabs-convai { width: 100%; height: 100%; }
+
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color:#fff; padding: 10px 25px; border-radius: 30px; font-size: 0.9rem; opacity: 0; transition: 0.3s; z-index: 20000; pointer-events: none; border: 1px solid #444; }
+        .warning-border { border-color: var(--accent) !important; animation: flash 0.5s infinite; }
+        
+        @keyframes spin { 100% { transform: rotate(-360deg); } }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="splash" class="screen active">
+        <h1 class="logo" style="font-size:3rem;">MIMO<span>.</span></h1>
+        <div class="loader"></div>
+    </div>
+
+    <div id="lang-screen" class="screen">
+        <h2 style="color:#fff; margin-bottom:30px;">Choose Language<br><span style="font-size:1rem; color:#666; font-family:'Tajawal'">اختر اللغة</span></h2>
+        <div class="lang-btn ar" onclick="app.setLang('ar')">
+            <span>العربية</span> <img src="https://flagcdn.com/w40/eg.png" style="border-radius:4px;">
+        </div>
+        <div class="lang-btn en" onclick="app.setLang('en')">
+            <img src="https://flagcdn.com/w40/gb.png" style="border-radius:4px;"> <span>English</span>
+        </div>
+    </div>
+
+    <div id="auth-screen" class="screen">
+        <div class="auth-box">
+            <i class="fas fa-user-shield" style="font-size:3rem; color:var(--primary); margin-bottom:20px;"></i>
+            <h2 id="txt-login-title" style="color:#fff; margin:0 0 20px 0;">--</h2>
+            <input type="text" id="auth-user" class="auth-input" placeholder="User Name">
+            <input type="tel" id="auth-phone" class="auth-input" placeholder="Contact / Email">
+            <button id="btn-login" class="main-btn" onclick="app.login()">--</button>
+            <p style="font-size:0.7rem; color:#555; margin-top:10px;">* Contact Info</p>
+        </div>
+    </div>
+
+    <div id="app-container" class="screen">
+        <header>
+            <div class="logo">MIMO <span>AI</span></div>
+            <i class="fas fa-wifi" style="color:var(--green)"></i>
+        </header>
+        <div class="status-card">
+            <div id="txt-live-sensors" style="font-size:0.8rem; color:#666; margin-bottom:10px;">--</div>
+            <div class="grid-data">
+                <div class="data-item" id="card-hr">
+                    <div class="data-val" id="val-hr">--</div>
+                    <div class="data-label">BPM</div>
+                </div>
+                <div class="data-item" id="card-mov">
+                    <div class="data-val" id="val-mov">0.0</div>
+                    <div class="data-label">G-Force</div>
+                </div>
+                <div class="data-item" id="card-voice" style="grid-column: span 2;">
+                    <div class="data-val" style="font-size:1rem;">
+                        <span id="voice-txt">--</span>
+                    </div>
+                    <div id="txt-voice-label" class="data-label">--</div>
+                </div>
+            </div>
+        </div>
+        <button class="start-btn" id="btn-toggle" onclick="core.toggleSystem()">
+            <i class="fas fa-power-off"></i> <span id="txt-start-btn">--</span>
+        </button>
+        <div id="txt-keywords" style="width:90%; max-width:400px; color:#555; font-size:0.8rem; margin-bottom:10px; text-align:center;">--</div>
+        <div class="sim-bar">
+            <div class="sim-chip" onclick="core.sim('voice')">🗣️ <span id="sim-voice"></span></div>
+            <div class="sim-chip" onclick="core.sim('fall')">🤕 <span id="sim-fall"></span></div>
+        </div>
+    </div>
+
+    <div id="doctor-screen" class="screen">
+        <div class="alert-header" id="txt-alert-header">🚨 -- 🚨</div>
+        
+        <div class="question-box" id="question-area">
+            <div id="txt-ai-question" class="question-text">--</div>
+            <div id="txt-listening" class="listening-indicator">🎙️ Listening... / استماع</div>
+        </div>
+
+        <div id="txt-assurance">--</div> 
+
+        <div class="countdown-circle" id="countdown-display">10</div>
+        
+        <div class="widget-area" id="ai-container"></div>
+
+        <button class="cancel-btn-center" onclick="core.cancelAlarm()">
+            <i class="fas fa-times-circle"></i> <span id="txt-cancel-btn">--</span>
+        </button>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        const CONFIG = {
+            WEBHOOK_URL: "https://hook.eu1.make.com/xdxbwggpe12pwevdzdvo8a21cjbqpf22", 
+            AGENT_IDS: {
+                ar: "agent_5601kfrvwrrxfxgafkezx421fe01", 
+                en: "agent_5601kfrvwrrxfxgafkezx421fe01"  
+            },
+            TEXT: {
+                ar: {
+                    login_title: "إعدادات الطوارئ", user_ph: "اسمك", phone_ph: "هاتف الطوارئ / إيميل", login_btn: "حفظ وبدء النظام",
+                    live_sensors: "المؤشرات الحيوية", voice_label: "تحليل الاستغاثة الصوتي", voice_inactive: "غير نشط",
+                    start_btn: "تفعيل الحماية", active_btn: "النظام نشط",
+                    keywords: 'الكلمات المفتاحية: "مساعدة"، "دكتور"، "طوارئ"، "إسعاف"',
+                    sim_voice: "تجربة صوت", sim_fall: "تجربة سقوط",
+                    alert_header: "تم رصد حالة طوارئ", cancel_btn: "إلغاء الإنذار",
+                    triggers: ['مساعدة', 'دكتور', 'طوارئ', 'إسعاف', 'اسعاف', 'حقوني', 'انقذني', 'ميمو', 'ألم'],
+                    voice_lang: 'ar-EG', connecting: "📡 جاري إرسال التقرير...", sent: "✅ تم الإرسال!",
+                    // 👇 السؤال الاحترافي 👇
+                    ai_ask: "هل أنت بخير؟.. إذا كنت سليماً اضغط إلغاء.. وإذا كنت مصاباً، أخبرني مكان الألم فوراً.", 
+                    listening: "جاري تسجيل ردك...",
+                    assurance_msg: "تم إرسال الإنذار. المساعدة قادمة. اضغط للتحدث مع المسعف الآلي 👇",
+                    assurance_speak: "تم إبلاغ الطوارئ بحالتك. المساعدة في الطريق. أنا المسعف الآلي، يمكنك سؤالي عن الإسعافات الأولية."
+                },
+                en: {
+                    login_title: "Emergency Setup", user_ph: "Your Name", phone_ph: "Emergency Contact", login_btn: "Save & Start",
+                    live_sensors: "Live Biomarkers", voice_label: "Voice Distress Analysis", voice_inactive: "Inactive",
+                    start_btn: "Activate Guard", active_btn: "System Active",
+                    keywords: 'Keywords: "Help", "Doctor", "Emergency", "Mimo"',
+                    sim_voice: "Test Voice", sim_fall: "Test Fall",
+                    alert_header: "EMERGENCY DETECTED", cancel_btn: "Cancel Alarm",
+                    triggers: ['help', 'doctor', 'emergency', 'ambulance', 'mimo', 'save me', 'pain'],
+                    voice_lang: 'en-US', connecting: "📡 Sending Report...", sent: "✅ Sent!",
+                    // 👇 Professional Question 👇
+                    ai_ask: "Are you okay?.. Press Cancel if safe.. Or tell me where it hurts immediately.",
+                    listening: "Recording your response...",
+                    assurance_msg: "Alert Sent. Help is coming. Talk to AI Medic below 👇",
+                    assurance_speak: "Emergency reported. Help is on the way. I am the AI Medic, you can ask me for first aid instructions."
+                }
+            }
+        };
+
+        const app = {
+            lang: 'ar', user: 'User', emergencyContact: '',
+            init: () => { setTimeout(() => { app.showScreen('lang-screen'); }, 2000); },
+            setLang: (l) => {
+                app.lang = l;
+                const t = CONFIG.TEXT[l];
+                document.dir = l === 'ar' ? 'rtl' : 'ltr';
+                document.getElementById('txt-login-title').innerText = t.login_title;
+                document.getElementById('auth-user').placeholder = t.user_ph;
+                document.getElementById('auth-phone').placeholder = t.phone_ph;
+                document.getElementById('btn-login').innerText = t.login_btn;
+                document.getElementById('txt-live-sensors').innerText = t.live_sensors;
+                document.getElementById('txt-voice-label').innerText = t.voice_label;
+                document.getElementById('voice-txt').innerText = t.voice_inactive;
+                document.getElementById('txt-start-btn').innerText = t.start_btn;
+                document.getElementById('txt-keywords').innerText = t.keywords;
+                document.getElementById('sim-voice').innerText = t.sim_voice;
+                document.getElementById('sim-fall').innerText = t.sim_fall;
+                document.getElementById('txt-alert-header').innerText = t.alert_header;
+                document.getElementById('txt-cancel-btn').innerText = t.cancel_btn;
+                document.getElementById('txt-ai-question').innerText = t.ai_ask;
+                document.getElementById('txt-listening').innerText = t.listening;
+                document.getElementById('txt-assurance').innerText = t.assurance_msg;
+                document.getElementById('ai-container').innerHTML = `<elevenlabs-convai agent-id="${CONFIG.AGENT_IDS[l]}"></elevenlabs-convai>`;
+                app.showScreen('auth-screen');
+            },
+            login: () => {
+                const u = document.getElementById('auth-user').value;
+                const p = document.getElementById('auth-phone').value;
+                if(u.length < 2) return ui.toast("Name Required");
+                if(p.length < 3) return ui.toast("Contact Info Required");
+                app.user = u;
+                app.emergencyContact = p;
+                app.showScreen('app-container');
+                ui.toast(app.lang==='ar' ? `مرحباً ${u}` : `Welcome ${u}`);
+            },
+            showScreen: (id) => {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(id).classList.add('active');
+            }
+        };
+
+        const core = {
+            active: false, recognition: null, hrInterval: null, countdownTimer: null,
+            fallState: { phase: 'idle', timestamp: 0 },
+            
+            patientResponse: "", 
+            isRecordingResponse: false,
+
+            toggleSystem: () => { if(core.active) core.stop(); else core.start(); },
+
+            start: async () => {
+                try {
+                    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                        core.recognition = new SpeechRecognition();
+                        core.recognition.continuous = true;
+                        core.recognition.interimResults = true;
+                        core.recognition.lang = CONFIG.TEXT[app.lang].voice_lang;
+                        
+                        core.recognition.onstart = () => { 
+                            if(core.isRecordingResponse) document.getElementById('txt-listening').style.display = 'block';
+                            else document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
+                        };
+                        
+                        core.recognition.onresult = (event) => {
+                            const transcript = Array.from(event.results).map(r => r[0].transcript).join('').toLowerCase();
+                            
+                            if (!core.isRecordingResponse) {
+                                document.getElementById('voice-txt').innerText = `"${transcript.split(' ').pop()}"`;
+                                CONFIG.TEXT[app.lang].triggers.forEach(word => {
+                                    if (transcript.includes(word)) { core.triggerAlarm(word); }
+                                });
+                            } 
+                            else {
+                                const latest = event.results[event.results.length - 1][0].transcript;
+                                core.patientResponse = latest; 
+                                document.getElementById('txt-ai-question').innerText = `"${latest}"`; 
+                            }
+                        };
+                        core.recognition.onend = () => { 
+                            if(core.active || core.isRecordingResponse) core.recognition.start(); 
+                        };
+                        core.recognition.start();
+                    }
+                    
+                    if (window.DeviceMotionEvent) window.addEventListener('devicemotion', core.handleMotion);
+                    core.hrInterval = setInterval(() => { document.getElementById('val-hr').innerText = Math.floor(Math.random()*(85-65+1)+65); }, 2000);
+                    core.active = true;
+                    ui.btnUpdate(true);
+                } catch(e) { alert("Microphone Required"); }
+            },
+
+            stop: () => {
+                core.active = false;
+                core.isRecordingResponse = false;
+                ui.btnUpdate(false);
+                if(core.recognition) core.recognition.abort();
+                clearInterval(core.hrInterval);
+                window.removeEventListener('devicemotion', core.handleMotion);
+                document.getElementById('voice-txt').innerText = CONFIG.TEXT[app.lang].voice_inactive;
+            },
+
+            // 🧬 أفضل منطق فيزياء سقوط (الذي طلبته)
+            handleMotion: (e) => {
+                if(!core.active) return;
+                const acc = e.accelerationIncludingGravity; if(!acc) return;
+                const total = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+                document.getElementById('val-mov').innerText = (total/9.8).toFixed(1);
+                const now = Date.now();
+                const state = core.fallState;
+
+                if (state.phase === 'idle' && total < 4.0) { state.phase = 'freefall'; state.timestamp = now; }
+                else if (state.phase === 'freefall') {
+                    if (now - state.timestamp > 1000) { state.phase = 'idle'; } 
+                    else if (total > 25.0) {
+                        state.phase = 'impact';
+                        core.triggerAlarm(app.lang==='ar' ? "سقوط (مؤكد)" : "Fall Detected");
+                        state.phase = 'idle';
+                    }
+                }
+            },
+
+            sim: (type) => {
+                if(!core.active) return ui.toast(app.lang==='ar'?"فعل النظام أولاً":"Activate System First");
+                if(type === 'voice') {
+                    document.getElementById('voice-txt').innerText = app.lang==='ar'?"مساعدة!":"Help!";
+                    setTimeout(() => core.triggerAlarm(app.lang==='ar'?"استغاثة":"Help Call"), 800);
+                } else if(type === 'fall') {
+                    core.triggerAlarm(app.lang==='ar'?"سقوط (تجربة)":"Fall Detected");
+                }
+            },
+
+            speakText: (txt) => {
+                const msg = new SpeechSynthesisUtterance();
+                msg.text = txt;
+                msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
+                msg.volume = 1; 
+                msg.rate = 1;
+                window.speechSynthesis.speak(msg);
+            },
+
+            triggerAlarm: (reason) => {
+                if(document.getElementById('doctor-screen').classList.contains('active')) return;
+                
+                core.active = false; 
+                core.isRecordingResponse = true; 
+                core.patientResponse = ""; 
+
+                app.showScreen('doctor-screen');
+                document.getElementById('txt-alert-header').innerText = `🚨 ${reason} 🚨`;
+                
+                document.getElementById('ai-container').style.display = 'none';
+                document.getElementById('question-area').style.display = 'block';
+                document.getElementById('txt-assurance').style.display = 'none';
+
+                // نطق السؤال والتحذير
+                core.speakText(CONFIG.TEXT[app.lang].ai_ask);
+
+                const countEl = document.getElementById('countdown-display');
+                let c = 10; 
+                countEl.innerText = c;
+                countEl.style.display = 'flex';
+                
+                core.countdownTimer = setInterval(() => {
+                    c--; countEl.innerText = c;
+                    
+                    if(c <= 0) {
+                        clearInterval(core.countdownTimer);
+                        countEl.style.display = 'none';
+                        document.getElementById('txt-listening').style.display = 'none';
+                        
+                        ui.toast(CONFIG.TEXT[app.lang].connecting);
+
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                    const lat = position.coords.latitude;
+                                    const long = position.coords.longitude;
+                                    const mapLink = `http://googleusercontent.com/maps.google.com/?q=${lat},${long}`;
+                                    core.sendWebhook(reason, mapLink);
+                                },
+                                (error) => { core.sendWebhook(reason, "GPS Unavailable"); },
+                                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                            );
+                        } else {
+                            core.sendWebhook(reason, "No GPS Support");
+                        }
+                    }
+                }, 1000);
+                if(navigator.vibrate) navigator.vibrate([500, 200, 500]);
+            },
+
+            sendWebhook: (reason, locationData) => {
+                let statusMsg = "";
+                let responseText = core.patientResponse.trim();
+                
+                if (responseText.length > 2) {
+                    statusMsg = `Patient Response: "${responseText}"`; 
+                } else {
+                    statusMsg = "⚠️ NO RESPONSE (Possible Unconsciousness)"; 
+                }
+
+                fetch(CONFIG.WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        alert: reason,
+                        user: app.user,
+                        contact: app.emergencyContact, 
+                        lang: app.lang,
+                        location: locationData,
+                        ai_summary: statusMsg 
+                    })
+                }).then(() => {
+                    ui.toast(CONFIG.TEXT[app.lang].sent);
+                    if(navigator.vibrate) navigator.vibrate([200]);
+                    
+                    core.provideFirstAid();
+
+                }).catch(() => {
+                    ui.toast("⚠️ Connection Error");
+                });
+            },
+
+            provideFirstAid: () => {
+                core.isRecordingResponse = false; 
+                document.getElementById('question-area').style.display = 'none';
+                
+                const assuranceDiv = document.getElementById('txt-assurance');
+                assuranceDiv.style.display = 'block';
+                
+                core.speakText(CONFIG.TEXT[app.lang].assurance_speak);
+
+                setTimeout(() => {
+                    document.getElementById('ai-container').style.display = 'block';
+                }, 2000); 
+            },
+
+            cancelAlarm: () => {
+                clearInterval(core.countdownTimer);
+                app.showScreen('app-container');
+                document.querySelectorAll('.data-item').forEach(e => e.classList.remove('warning-border'));
+                core.fallState.phase = 'idle'; 
+                core.isRecordingResponse = false;
+                
+                document.querySelector('.widget-area').style.display = 'none';
+                document.getElementById('txt-assurance').style.display = 'none';
+                document.getElementById('question-area').style.display = 'block';
+
+                core.start();
+            }
+        };
+
+        const ui = {
+            toast: (msg) => { const t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 3000); },
+            btnUpdate: (active) => {
+                const btn = document.getElementById('btn-toggle');
+                const t = CONFIG.TEXT[app.lang];
+                if(active) { btn.classList.add('active'); btn.innerHTML = `<i class="fas fa-shield-alt"></i> <span>${t.active_btn}</span>`; }
+                else { btn.classList.remove('active'); btn.innerHTML = `<i class="fas fa-power-off"></i> <span>${t.start_btn}</span>`; }
+            }
+        };
+
+        window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = 0; setTimeout(()=>app.showScreen('lang-screen'), 400); }, 2000); };
+    </script>
+</body>
+</html>
