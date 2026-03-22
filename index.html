@@ -377,7 +377,7 @@
                                 (position) => {
                                     const lat = position.coords.latitude;
                                     const long = position.coords.longitude;
-                                    const mapLink = `http://googleusercontent.com/maps.google.com/?q=${lat},${long}`;
+                                    const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
                                     core.sendWebhook(reason, mapLink);
                                 },
                                 (error) => { core.sendWebhook(reason, "GPS Unavailable"); },
