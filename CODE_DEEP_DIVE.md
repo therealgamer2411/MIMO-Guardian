@@ -100,5 +100,3 @@ Once the emergency is validated, the system triggers the ElevenLabs Conversation
 ```
 **Clinical Value:** Reduces the panic of the isolated worker and provides the HSE dashboard with immediate, conversational triage data (e.g., "My leg is broken") rather than just a silent alarm.
 ```
-
----
