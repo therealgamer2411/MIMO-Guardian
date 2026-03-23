@@ -12,7 +12,7 @@ Unlike standard UI prototypes, this MVP is a **Serverless Edge Application**. It
 
 ## 🚀 2. Live Interactive Demo
 You can test the fully functional system directly via your mobile browser:
-**👉 [ضع رابط GitHub Pages الخاص بك هنا] 👈**
+**👉 [https://mimo-guardian.vercel.app/] 👈**
 
 ## ⚙️ 3. How to Test the MVP (Important Instructions for Judges)
 To experience the true capability of the MIMO Guardian engine, please follow these steps:
