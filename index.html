@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MIMO Guardian</title>
+    <title>MIMO Guardian: Final Demo</title>
     
     <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
     
@@ -96,9 +96,9 @@
             <i class="fas fa-user-shield" style="font-size:3rem; color:var(--primary); margin-bottom:20px;"></i>
             <h2 id="txt-login-title" style="color:#fff; margin:0 0 20px 0;">--</h2>
             <input type="text" id="auth-user" class="auth-input" placeholder="User Name">
-            <input type="tel" id="auth-phone" class="auth-input" placeholder=" Email">
+            <input type="email" id="auth-email" class="auth-input" placeholder="Email Address">
             <button id="btn-login" class="main-btn" onclick="app.login()">--</button>
-            <p style="font-size:0.7rem; color:#555; margin-top:10px;">* Contact Info</p>
+            <p id="txt-auth-note" style="font-size:0.75rem; color:#aaa; margin-top:15px;">--</p>
         </div>
     </div>
 
@@ -159,47 +159,51 @@
 
     <script>
         const CONFIG = {
-            WEBHOOK_URL: "https://hook.eu1.make.com/mk93aj1222tq9ekvb5w3ydprfzalygme", 
+            WEBHOOK_URL: "https://hook.eu1.make.com/xdxbwggpe12pwevdzdvo8a21cjbqpf22", 
             AGENT_IDS: {
                 ar: "agent_5601kfrvwrrxfxgafkezx421fe01", 
                 en: "agent_5601kfrvwrrxfxgafkezx421fe01"  
             },
             TEXT: {
                 ar: {
-                    login_title: "إعدادات الطوارئ", user_ph: "اسمك", phone_ph: " إيميل", login_btn: "حفظ وبدء النظام",
+                    login_title: "إعدادات الطوارئ", user_ph: "اسمك", 
+                    email_ph: "البريد الإلكتروني (لتلقي الإنذار)", 
+                    auth_note: "* سيتم إرسال تقرير الطوارئ اللحظي إلى هذا الإيميل",
+                    login_btn: "حفظ وبدء النظام",
                     live_sensors: "المؤشرات الحيوية", voice_label: "تحليل الاستغاثة الصوتي", voice_inactive: "غير نشط",
                     start_btn: "تفعيل الحماية", active_btn: "النظام نشط",
                     keywords: 'الكلمات المفتاحية: "مساعدة"، "دكتور"، "طوارئ"، "إسعاف"',
                     sim_voice: "تجربة صوت", sim_fall: "تجربة سقوط",
                     alert_header: "تم رصد حالة طوارئ", cancel_btn: "إلغاء الإنذار",
                     triggers: ['مساعدة', 'دكتور', 'طوارئ', 'إسعاف', 'اسعاف', 'حقوني', 'انقذني', 'ميمو', 'ألم'],
-                    voice_lang: 'ar-EG', connecting: "📡 جاري إرسال التقرير...", sent: "✅ تم الإرسال!",
-                    // 👇 السؤال الاحترافي 👇
+                    voice_lang: 'ar-EG', connecting: "📡 جاري إرسال التقرير...", sent: "✅ تم الإرسال للبريد!",
                     ai_ask: "هل أنت بخير؟.. إذا كنت سليماً اضغط إلغاء.. وإذا كنت مصاباً، أخبرني مكان الألم فوراً.", 
                     listening: "جاري تسجيل ردك...",
                     assurance_msg: "تم إرسال الإنذار. المساعدة قادمة. اضغط للتحدث مع المسعف الآلي 👇",
-                    assurance_speak: "تم إبلاغ الطوارئ بحالتك. المساعدة في الطريق. أنا المسعف الآلي، يمكنك سؤالي عن الإسعافات الأولية."
+                    assurance_speak: "تم إبلاغ الطوارئ بحالتك عبر البريد. المساعدة في الطريق. أنا المسعف الآلي، يمكنك سؤالي عن الإسعافات الأولية."
                 },
                 en: {
-                    login_title: "Emergency Setup", user_ph: "Your Name", phone_ph: "Emergency Contact", login_btn: "Save & Start",
+                    login_title: "Emergency Setup", user_ph: "Your Name", 
+                    email_ph: "Email Address (For Alerts)", 
+                    auth_note: "* Live emergency report will be sent to this email",
+                    login_btn: "Save & Start",
                     live_sensors: "Live Biomarkers", voice_label: "Voice Distress Analysis", voice_inactive: "Inactive",
                     start_btn: "Activate Guard", active_btn: "System Active",
                     keywords: 'Keywords: "Help", "Doctor", "Emergency", "Mimo"',
                     sim_voice: "Test Voice", sim_fall: "Test Fall",
                     alert_header: "EMERGENCY DETECTED", cancel_btn: "Cancel Alarm",
                     triggers: ['help', 'doctor', 'emergency', 'ambulance', 'mimo', 'save me', 'pain'],
-                    voice_lang: 'en-US', connecting: "📡 Sending Report...", sent: "✅ Sent!",
-                    // 👇 Professional Question 👇
+                    voice_lang: 'en-US', connecting: "📡 Sending Report...", sent: "✅ Sent to Email!",
                     ai_ask: "Are you okay?.. Press Cancel if safe.. Or tell me where it hurts immediately.",
                     listening: "Recording your response...",
                     assurance_msg: "Alert Sent. Help is coming. Talk to AI Medic below 👇",
-                    assurance_speak: "Emergency reported. Help is on the way. I am the AI Medic, you can ask me for first aid instructions."
+                    assurance_speak: "Emergency reported via email. Help is on the way. I am the AI Medic, you can ask me for first aid instructions."
                 }
             }
         };
 
         const app = {
-            lang: 'ar', user: 'User', emergencyContact: '',
+            lang: 'ar', user: 'User', targetEmail: '',
             init: () => { setTimeout(() => { app.showScreen('lang-screen'); }, 2000); },
             setLang: (l) => {
                 app.lang = l;
@@ -207,7 +211,8 @@
                 document.dir = l === 'ar' ? 'rtl' : 'ltr';
                 document.getElementById('txt-login-title').innerText = t.login_title;
                 document.getElementById('auth-user').placeholder = t.user_ph;
-                document.getElementById('auth-phone').placeholder = t.phone_ph;
+                document.getElementById('auth-email').placeholder = t.email_ph;
+                document.getElementById('txt-auth-note').innerText = t.auth_note;
                 document.getElementById('btn-login').innerText = t.login_btn;
                 document.getElementById('txt-live-sensors').innerText = t.live_sensors;
                 document.getElementById('txt-voice-label').innerText = t.voice_label;
@@ -226,11 +231,13 @@
             },
             login: () => {
                 const u = document.getElementById('auth-user').value;
-                const p = document.getElementById('auth-phone').value;
-                if(u.length < 2) return ui.toast("Name Required");
-                if(p.length < 3) return ui.toast("Contact Info Required");
+                const e = document.getElementById('auth-email').value;
+                
+                if(u.length < 2) return ui.toast(app.lang === 'ar' ? "يرجى إدخال اسمك" : "Name Required");
+                if(e.length < 5 || !e.includes('@')) return ui.toast(app.lang === 'ar' ? "يرجى إدخال إيميل صحيح" : "Valid Email Required");
+                
                 app.user = u;
-                app.emergencyContact = p;
+                app.targetEmail = e;
                 app.showScreen('app-container');
                 ui.toast(app.lang==='ar' ? `مرحباً ${u}` : `Welcome ${u}`);
             },
@@ -301,7 +308,6 @@
                 document.getElementById('voice-txt').innerText = CONFIG.TEXT[app.lang].voice_inactive;
             },
 
-            // 🧬 أفضل منطق فيزياء سقوط (الذي طلبته)
             handleMotion: (e) => {
                 if(!core.active) return;
                 const acc = e.accelerationIncludingGravity; if(!acc) return;
@@ -354,7 +360,6 @@
                 document.getElementById('question-area').style.display = 'block';
                 document.getElementById('txt-assurance').style.display = 'none';
 
-                // نطق السؤال والتحذير
                 core.speakText(CONFIG.TEXT[app.lang].ai_ask);
 
                 const countEl = document.getElementById('countdown-display');
@@ -407,7 +412,7 @@
                     body: JSON.stringify({
                         alert: reason,
                         user: app.user,
-                        contact: app.emergencyContact, 
+                        email: app.targetEmail, // التعديل الجوهري لربط الإيميل
                         lang: app.lang,
                         location: locationData,
                         ai_summary: statusMsg 
