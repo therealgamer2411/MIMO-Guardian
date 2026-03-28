@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MIMO Guardian: Final Demo</title>
+    <title>MIMO Guardian</title>
     
     <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
     
@@ -96,7 +96,7 @@
             <i class="fas fa-user-shield" style="font-size:3rem; color:var(--primary); margin-bottom:20px;"></i>
             <h2 id="txt-login-title" style="color:#fff; margin:0 0 20px 0;">--</h2>
             <input type="text" id="auth-user" class="auth-input" placeholder="User Name">
-            <input type="tel" id="auth-phone" class="auth-input" placeholder="Contact / Email">
+            <input type="tel" id="auth-phone" class="auth-input" placeholder=" Email">
             <button id="btn-login" class="main-btn" onclick="app.login()">--</button>
             <p style="font-size:0.7rem; color:#555; margin-top:10px;">* Contact Info</p>
         </div>
@@ -159,14 +159,14 @@
 
     <script>
         const CONFIG = {
-            WEBHOOK_URL: "https://hook.eu1.make.com/xdxbwggpe12pwevdzdvo8a21cjbqpf22", 
+            WEBHOOK_URL: "https://hook.eu1.make.com/mk93aj1222tq9ekvb5w3ydprfzalygme", 
             AGENT_IDS: {
                 ar: "agent_5601kfrvwrrxfxgafkezx421fe01", 
                 en: "agent_5601kfrvwrrxfxgafkezx421fe01"  
             },
             TEXT: {
                 ar: {
-                    login_title: "إعدادات الطوارئ", user_ph: "اسمك", phone_ph: "هاتف الطوارئ / إيميل", login_btn: "حفظ وبدء النظام",
+                    login_title: "إعدادات الطوارئ", user_ph: "اسمك", phone_ph: " إيميل", login_btn: "حفظ وبدء النظام",
                     live_sensors: "المؤشرات الحيوية", voice_label: "تحليل الاستغاثة الصوتي", voice_inactive: "غير نشط",
                     start_btn: "تفعيل الحماية", active_btn: "النظام نشط",
                     keywords: 'الكلمات المفتاحية: "مساعدة"، "دكتور"، "طوارئ"، "إسعاف"',
