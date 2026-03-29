@@ -253,6 +253,7 @@
             
             patientResponse: "", 
             isRecordingResponse: false,
+            aiIsSpeaking: false, // <-- التعديل 1: متغير الإسكات
 
             toggleSystem: () => { if(core.active) core.stop(); else core.start(); },
 
@@ -271,6 +272,9 @@
                         };
                         
                         core.recognition.onresult = (event) => {
+                            // <-- التعديل 2: تجاهل المايكروفون طالما المسعف الآلي يتحدث
+                            if(core.aiIsSpeaking) return; 
+
                             const transcript = Array.from(event.results).map(r => r[0].transcript).join('').toLowerCase();
                             
                             if (!core.isRecordingResponse) {
@@ -337,12 +341,14 @@
                 }
             },
 
-            speakText: (txt) => {
+            // <-- التعديل 3: إضافة الكول باك ليعلمنا بانتهاء الصوت
+            speakText: (txt, onEndCallback) => {
                 const msg = new SpeechSynthesisUtterance();
                 msg.text = txt;
                 msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
                 msg.volume = 1; 
                 msg.rate = 1;
+                if(onEndCallback) msg.onend = onEndCallback;
                 window.speechSynthesis.speak(msg);
             },
 
@@ -360,7 +366,11 @@
                 document.getElementById('question-area').style.display = 'block';
                 document.getElementById('txt-assurance').style.display = 'none';
 
-                core.speakText(CONFIG.TEXT[app.lang].ai_ask);
+                // <-- التعديل 4: تفعيل الإسكات أثناء نطق السؤال، وإلغائه بعد الانتهاء
+                core.aiIsSpeaking = true;
+                core.speakText(CONFIG.TEXT[app.lang].ai_ask, () => {
+                    core.aiIsSpeaking = false;
+                });
 
                 const countEl = document.getElementById('countdown-display');
                 let c = 10; 
@@ -412,7 +422,7 @@
                     body: JSON.stringify({
                         alert: reason,
                         user: app.user,
-                        email: app.targetEmail, // التعديل الجوهري لربط الإيميل
+                        email: app.targetEmail,
                         lang: app.lang,
                         location: locationData,
                         ai_summary: statusMsg 
@@ -435,7 +445,11 @@
                 const assuranceDiv = document.getElementById('txt-assurance');
                 assuranceDiv.style.display = 'block';
                 
-                core.speakText(CONFIG.TEXT[app.lang].assurance_speak);
+                // إضافة كتم الصوت هنا أيضاً احتياطياً أثناء كلام المسعف عن الإسعافات
+                core.aiIsSpeaking = true;
+                core.speakText(CONFIG.TEXT[app.lang].assurance_speak, () => {
+                    core.aiIsSpeaking = false;
+                });
 
                 setTimeout(() => {
                     document.getElementById('ai-container').style.display = 'block';
@@ -448,6 +462,7 @@
                 document.querySelectorAll('.data-item').forEach(e => e.classList.remove('warning-border'));
                 core.fallState.phase = 'idle'; 
                 core.isRecordingResponse = false;
+                core.aiIsSpeaking = false; // إعادة تعيين في حال الإلغاء
                 
                 document.querySelector('.widget-area').style.display = 'none';
                 document.getElementById('txt-assurance').style.display = 'none';
