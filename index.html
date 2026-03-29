@@ -57,7 +57,7 @@
         .question-text { font-size: 1.4rem; color: var(--primary); margin-bottom: 10px; font-weight: bold; line-height: 1.4; }
         .listening-indicator { font-size: 0.9rem; color: #aaa; animation: pulse 1s infinite; display: none; }
         
-        .countdown-circle { margin-top: 20px; width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--accent); background: #000; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 30px var(--accent); }
+        .countdown-circle { margin-top: 20px; width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--accent); background: #000; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 30px var(--accent); display: none; /* مخفي مبدئياً */ }
         
         #txt-assurance { margin-top: 20px; color: var(--green); font-size: 1.1rem; text-align: center; display: none; animation: flash 2s infinite; padding: 15px; border: 1px solid var(--green); border-radius: 10px; background: rgba(0, 255, 157, 0.1); width: 90%; }
 
@@ -141,12 +141,12 @@
         
         <div class="question-box" id="question-area">
             <div id="txt-ai-question" class="question-text">--</div>
-            <div id="txt-listening" class="listening-indicator">🎙️ Listening... / استماع</div>
+            <div id="txt-listening" class="listening-indicator" style="display: none;">🎙️ Listening... / استماع</div>
         </div>
 
         <div id="txt-assurance">--</div> 
 
-        <div class="countdown-circle" id="countdown-display">10</div>
+        <div class="countdown-circle" id="countdown-display" style="display: none;">10</div>
         
         <div class="widget-area" id="ai-container"></div>
 
@@ -253,7 +253,8 @@
             
             patientResponse: "", 
             isRecordingResponse: false,
-            aiIsSpeaking: false, // <-- التعديل 1: متغير الإسكات
+            aiIsSpeaking: false,
+            currentUtterance: null, // <-- المتغير الجديد للحفاظ على الصوت
 
             toggleSystem: () => { if(core.active) core.stop(); else core.start(); },
 
@@ -267,12 +268,15 @@
                         core.recognition.lang = CONFIG.TEXT[app.lang].voice_lang;
                         
                         core.recognition.onstart = () => { 
-                            if(core.isRecordingResponse) document.getElementById('txt-listening').style.display = 'block';
-                            else document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
+                            if(core.isRecordingResponse && !core.aiIsSpeaking) {
+                                document.getElementById('txt-listening').style.display = 'block';
+                            }
+                            else if (!core.isRecordingResponse) {
+                                document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
+                            }
                         };
                         
                         core.recognition.onresult = (event) => {
-                            // <-- التعديل 2: تجاهل المايكروفون طالما المسعف الآلي يتحدث
                             if(core.aiIsSpeaking) return; 
 
                             const transcript = Array.from(event.results).map(r => r[0].transcript).join('').toLowerCase();
@@ -341,15 +345,19 @@
                 }
             },
 
-            // <-- التعديل 3: إضافة الكول باك ليعلمنا بانتهاء الصوت
+            // <-- التعديل الخاص بحماية الصوت من التوقف
             speakText: (txt, onEndCallback) => {
-                const msg = new SpeechSynthesisUtterance();
-                msg.text = txt;
-                msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
-                msg.volume = 1; 
-                msg.rate = 1;
-                if(onEndCallback) msg.onend = onEndCallback;
-                window.speechSynthesis.speak(msg);
+                window.speechSynthesis.cancel(); 
+                core.currentUtterance = new SpeechSynthesisUtterance(txt);
+                core.currentUtterance.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
+                core.currentUtterance.volume = 1; 
+                core.currentUtterance.rate = 1;
+                
+                if(onEndCallback) {
+                    core.currentUtterance.onend = onEndCallback;
+                    core.currentUtterance.onerror = onEndCallback; 
+                }
+                window.speechSynthesis.speak(core.currentUtterance);
             },
 
             triggerAlarm: (reason) => {
@@ -366,43 +374,50 @@
                 document.getElementById('question-area').style.display = 'block';
                 document.getElementById('txt-assurance').style.display = 'none';
 
-                // <-- التعديل 4: تفعيل الإسكات أثناء نطق السؤال، وإلغائه بعد الانتهاء
+                // <-- إخفاء العداد أثناء كلام الذكاء الاصطناعي
+                const countEl = document.getElementById('countdown-display');
+                countEl.style.display = 'none';
+                document.getElementById('txt-listening').style.display = 'none';
+
                 core.aiIsSpeaking = true;
+                
+                // <-- تشغيل السؤال، وبعد الانتهاء يبدأ العداد
                 core.speakText(CONFIG.TEXT[app.lang].ai_ask, () => {
-                    core.aiIsSpeaking = false;
+                    core.aiIsSpeaking = false; 
+                    
+                    document.getElementById('txt-listening').style.display = 'block';
+                    let c = 10; 
+                    countEl.innerText = c;
+                    countEl.style.display = 'flex';
+                    
+                    core.countdownTimer = setInterval(() => {
+                        c--; countEl.innerText = c;
+                        
+                        if(c <= 0) {
+                            clearInterval(core.countdownTimer);
+                            countEl.style.display = 'none';
+                            document.getElementById('txt-listening').style.display = 'none';
+                            
+                            ui.toast(CONFIG.TEXT[app.lang].connecting);
+
+                            if (navigator.geolocation) {
+                                navigator.geolocation.getCurrentPosition(
+                                    (position) => {
+                                        const lat = position.coords.latitude;
+                                        const long = position.coords.longitude;
+                                        const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
+                                        core.sendWebhook(reason, mapLink);
+                                    },
+                                    (error) => { core.sendWebhook(reason, "GPS Unavailable"); },
+                                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                                );
+                            } else {
+                                core.sendWebhook(reason, "No GPS Support");
+                            }
+                        }
+                    }, 1000);
                 });
 
-                const countEl = document.getElementById('countdown-display');
-                let c = 10; 
-                countEl.innerText = c;
-                countEl.style.display = 'flex';
-                
-                core.countdownTimer = setInterval(() => {
-                    c--; countEl.innerText = c;
-                    
-                    if(c <= 0) {
-                        clearInterval(core.countdownTimer);
-                        countEl.style.display = 'none';
-                        document.getElementById('txt-listening').style.display = 'none';
-                        
-                        ui.toast(CONFIG.TEXT[app.lang].connecting);
-
-                        if (navigator.geolocation) {
-                            navigator.geolocation.getCurrentPosition(
-                                (position) => {
-                                    const lat = position.coords.latitude;
-                                    const long = position.coords.longitude;
-                                    const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
-                                    core.sendWebhook(reason, mapLink);
-                                },
-                                (error) => { core.sendWebhook(reason, "GPS Unavailable"); },
-                                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-                            );
-                        } else {
-                            core.sendWebhook(reason, "No GPS Support");
-                        }
-                    }
-                }, 1000);
                 if(navigator.vibrate) navigator.vibrate([500, 200, 500]);
             },
 
@@ -445,7 +460,6 @@
                 const assuranceDiv = document.getElementById('txt-assurance');
                 assuranceDiv.style.display = 'block';
                 
-                // إضافة كتم الصوت هنا أيضاً احتياطياً أثناء كلام المسعف عن الإسعافات
                 core.aiIsSpeaking = true;
                 core.speakText(CONFIG.TEXT[app.lang].assurance_speak, () => {
                     core.aiIsSpeaking = false;
@@ -462,7 +476,7 @@
                 document.querySelectorAll('.data-item').forEach(e => e.classList.remove('warning-border'));
                 core.fallState.phase = 'idle'; 
                 core.isRecordingResponse = false;
-                core.aiIsSpeaking = false; // إعادة تعيين في حال الإلغاء
+                core.aiIsSpeaking = false; 
                 
                 document.querySelector('.widget-area').style.display = 'none';
                 document.getElementById('txt-assurance').style.display = 'none';
