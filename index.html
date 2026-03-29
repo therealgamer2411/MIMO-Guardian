@@ -57,7 +57,7 @@
         .question-text { font-size: 1.4rem; color: var(--primary); margin-bottom: 10px; font-weight: bold; line-height: 1.4; }
         .listening-indicator { font-size: 0.9rem; color: #aaa; animation: pulse 1s infinite; display: none; }
         
-        .countdown-circle { margin-top: 20px; width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--accent); background: #000; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 30px var(--accent); display: none; /* مخفي مبدئياً */ }
+        .countdown-circle { margin-top: 20px; width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--accent); background: #000; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 30px var(--accent); }
         
         #txt-assurance { margin-top: 20px; color: var(--green); font-size: 1.1rem; text-align: center; display: none; animation: flash 2s infinite; padding: 15px; border: 1px solid var(--green); border-radius: 10px; background: rgba(0, 255, 157, 0.1); width: 90%; }
 
@@ -141,12 +141,12 @@
         
         <div class="question-box" id="question-area">
             <div id="txt-ai-question" class="question-text">--</div>
-            <div id="txt-listening" class="listening-indicator" style="display: none;">🎙️ Listening... / استماع</div>
+            <div id="txt-listening" class="listening-indicator">🎙️ Listening... / استماع</div>
         </div>
 
         <div id="txt-assurance">--</div> 
 
-        <div class="countdown-circle" id="countdown-display" style="display: none;">10</div>
+        <div class="countdown-circle" id="countdown-display">10</div>
         
         <div class="widget-area" id="ai-container"></div>
 
@@ -253,8 +253,7 @@
             
             patientResponse: "", 
             isRecordingResponse: false,
-            aiIsSpeaking: false,
-            currentUtterance: null, // <-- المتغير الجديد للحفاظ على الصوت
+            aiIsSpeaking: false, 
 
             toggleSystem: () => { if(core.active) core.stop(); else core.start(); },
 
@@ -268,12 +267,8 @@
                         core.recognition.lang = CONFIG.TEXT[app.lang].voice_lang;
                         
                         core.recognition.onstart = () => { 
-                            if(core.isRecordingResponse && !core.aiIsSpeaking) {
-                                document.getElementById('txt-listening').style.display = 'block';
-                            }
-                            else if (!core.isRecordingResponse) {
-                                document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
-                            }
+                            if(core.isRecordingResponse) document.getElementById('txt-listening').style.display = 'block';
+                            else document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
                         };
                         
                         core.recognition.onresult = (event) => {
@@ -345,19 +340,18 @@
                 }
             },
 
-            // <-- التعديل الخاص بحماية الصوت من التوقف
             speakText: (txt, onEndCallback) => {
                 window.speechSynthesis.cancel(); 
-                core.currentUtterance = new SpeechSynthesisUtterance(txt);
-                core.currentUtterance.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
-                core.currentUtterance.volume = 1; 
-                core.currentUtterance.rate = 1;
+                const msg = new SpeechSynthesisUtterance(txt);
+                msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
+                msg.volume = 1; 
+                msg.rate = 1;
                 
                 if(onEndCallback) {
-                    core.currentUtterance.onend = onEndCallback;
-                    core.currentUtterance.onerror = onEndCallback; 
+                    msg.onend = onEndCallback;
+                    msg.onerror = onEndCallback; 
                 }
-                window.speechSynthesis.speak(core.currentUtterance);
+                window.speechSynthesis.speak(msg);
             },
 
             triggerAlarm: (reason) => {
@@ -374,15 +368,14 @@
                 document.getElementById('question-area').style.display = 'block';
                 document.getElementById('txt-assurance').style.display = 'none';
 
-                // <-- إخفاء العداد أثناء كلام الذكاء الاصطناعي
                 const countEl = document.getElementById('countdown-display');
                 countEl.style.display = 'none';
                 document.getElementById('txt-listening').style.display = 'none';
 
                 core.aiIsSpeaking = true;
-                
-                // <-- تشغيل السؤال، وبعد الانتهاء يبدأ العداد
+
                 core.speakText(CONFIG.TEXT[app.lang].ai_ask, () => {
+                    
                     core.aiIsSpeaking = false; 
                     
                     document.getElementById('txt-listening').style.display = 'block';
@@ -437,7 +430,7 @@
                     body: JSON.stringify({
                         alert: reason,
                         user: app.user,
-                        email: app.targetEmail,
+                        email: app.targetEmail, 
                         lang: app.lang,
                         location: locationData,
                         ai_summary: statusMsg 
