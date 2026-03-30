@@ -370,8 +370,8 @@
                 window.speechSynthesis.cancel(); 
                 const msg = new SpeechSynthesisUtterance(txt);
                 msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
-                msg.volume = 1; 
-                msg.rate = 1;
+                msg.volume = 1.25; 
+                msg.rate = 1.05;
                 
                 if(onEndCallback) {
                     msg.onend = onEndCallback;
