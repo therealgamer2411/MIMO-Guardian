@@ -370,8 +370,9 @@
                 window.speechSynthesis.cancel(); 
                 const msg = new SpeechSynthesisUtterance(txt);
                 msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
-                msg.volume = 1.25; 
-                msg.rate = 1.05;
+               msg.volume = 1; 
+                msg.rate = app.lang === 'ar' ? 1.25 : 1.1; // تسريع إيقاع الكلام ليكون طبيعي
+                msg.pitch = 1.05; // تنعيم الصوت لتقليل النبرة الآلية
                 
                 if(onEndCallback) {
                     msg.onend = onEndCallback;
