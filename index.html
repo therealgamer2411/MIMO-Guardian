@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MIMO Guardian: Final Demo</title>
+    <title>MIMO Guardian</title>
     
     <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
     
@@ -159,7 +159,7 @@
 
     <script>
         const CONFIG = {
-            WEBHOOK_URL: "https://hook.eu1.make.com/mk93aj1222tq9ekvb5w3ydprfzalygme", 
+            WEBHOOK_URL: "https://hook.eu1.make.com/xdxbwggpe12pwevdzdvo8a21cjbqpf22", 
             AGENT_IDS: {
                 ar: "agent_5601kfrvwrrxfxgafkezx421fe01", 
                 en: "agent_5601kfrvwrrxfxgafkezx421fe01"  
@@ -220,7 +220,6 @@
                 document.getElementById('txt-voice-label').innerText = t.voice_label;
                 document.getElementById('voice-txt').innerText = t.voice_inactive;
                 
-                // تحديث نصوص حالة العامل
                 document.getElementById('txt-status-label').innerText = t.status_label;
                 document.getElementById('val-status').innerText = t.secure;
                 
@@ -286,6 +285,7 @@
                             if (!core.isRecordingResponse) {
                                 document.getElementById('voice-txt').innerText = `"${transcript.split(' ').pop()}"`;
                                 CONFIG.TEXT[app.lang].triggers.forEach(word => {
+                                    // الكلمات الاستغاثية لا تُفعل الإنذار إلا إذا كان هناك سقوط مؤكد
                                     if (transcript.includes(word)) { core.triggerAlarm(word); }
                                 });
                             } 
@@ -303,7 +303,6 @@
                     
                     if (window.DeviceMotionEvent) window.addEventListener('devicemotion', core.handleMotion);
                     
-                    // تحويل الحالة إلى مستقر عند التفعيل
                     document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].secure;
                     document.getElementById('val-status').style.color = "var(--green)";
                     
@@ -321,6 +320,7 @@
                 document.getElementById('voice-txt').innerText = CONFIG.TEXT[app.lang].voice_inactive;
             },
 
+            // 🧬 التحديث الجوهري: خوارزمية السقوط -> الارتطام -> السكون 
             handleMotion: (e) => {
                 if(!core.active) return;
                 const acc = e.accelerationIncludingGravity; if(!acc) return;
@@ -329,12 +329,28 @@
                 const now = Date.now();
                 const state = core.fallState;
 
-                if (state.phase === 'idle' && total < 4.0) { state.phase = 'freefall'; state.timestamp = now; }
+                // 1. السقوط الحر (انعدام الجاذبية تقريباً)
+                if (state.phase === 'idle' && total < 4.0) { 
+                    state.phase = 'freefall'; 
+                    state.timestamp = now; 
+                }
+                // 2. الارتطام (قوة عنيفة جداً بعد السقوط)
                 else if (state.phase === 'freefall') {
-                    if (now - state.timestamp > 1000) { state.phase = 'idle'; } 
-                    else if (total > 25.0) {
+                    if (now - state.timestamp > 1500) { state.phase = 'idle'; } // نفاد الوقت
+                    else if (total > 20.0) {
                         state.phase = 'impact';
-                        core.triggerAlarm(app.lang==='ar' ? "سقوط (مؤكد)" : "Fall Detected");
+                        state.timestamp = now;
+                    }
+                }
+                // 3. السكون التام (التأكد من عدم قدرة العامل على النهوض)
+                else if (state.phase === 'impact') {
+                    if (now - state.timestamp > 2000) { 
+                        // مر ثانيتين بدون حركة عنيفة -> تم تأكيد السقوط والسكون -> فعل الاستغاثة
+                        state.phase = 'idle';
+                        core.triggerAlarm(app.lang==='ar' ? "سقوط وسكون (مؤكد)" : "Confirmed Fall");
+                    } 
+                    else if (total > 12.0) {
+                        // الهاتف تحرك بقوة مجدداً (العامل التقط الهاتف أو يكمل حركته) -> إلغاء الإنذار
                         state.phase = 'idle';
                     }
                 }
@@ -346,7 +362,7 @@
                     document.getElementById('voice-txt').innerText = app.lang==='ar'?"مساعدة!":"Help!";
                     setTimeout(() => core.triggerAlarm(app.lang==='ar'?"استغاثة":"Help Call"), 800);
                 } else if(type === 'fall') {
-                    core.triggerAlarm(app.lang==='ar'?"سقوط (تجربة)":"Fall Detected");
+                    core.triggerAlarm(app.lang==='ar'?"سقوط وسكون (تجربة)":"Fall & Stillness");
                 }
             },
 
@@ -371,7 +387,6 @@
                 core.isRecordingResponse = true; 
                 core.patientResponse = ""; 
                 
-                // تحويل الحالة إلى خطر عند الإنذار
                 document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].danger;
                 document.getElementById('val-status').style.color = "var(--accent)";
 
@@ -389,6 +404,8 @@
                 core.aiIsSpeaking = true;
 
                 core.speakText(CONFIG.TEXT[app.lang].ai_ask, () => {
+                    // منع استكمال العملية وتفعيل العداد إذا تم الإلغاء
+                    if(!document.getElementById('doctor-screen').classList.contains('active')) return;
                     
                     core.aiIsSpeaking = false; 
                     
@@ -478,6 +495,7 @@
             },
 
             cancelAlarm: () => {
+                window.speechSynthesis.cancel(); // الإسكات الفوري للـ AI
                 clearInterval(core.countdownTimer);
                 app.showScreen('app-container');
                 document.querySelectorAll('.data-item').forEach(e => e.classList.remove('warning-border'));
@@ -485,7 +503,6 @@
                 core.isRecordingResponse = false;
                 core.aiIsSpeaking = false; 
                 
-                // إعادة الحالة لمستقر عند الإلغاء
                 document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].secure;
                 document.getElementById('val-status').style.color = "var(--green)";
                 
