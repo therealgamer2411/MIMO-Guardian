@@ -110,9 +110,9 @@
         <div class="status-card">
             <div id="txt-live-sensors" style="font-size:0.8rem; color:#666; margin-bottom:10px;">--</div>
             <div class="grid-data">
-                <div class="data-item" id="card-hr">
-                    <div class="data-val" id="val-hr">--</div>
-                    <div class="data-label">BPM</div>
+                <div class="data-item" id="card-status">
+                    <div class="data-val" id="val-status" style="color: var(--green);">--</div>
+                    <div class="data-label" id="txt-status-label">--</div>
                 </div>
                 <div class="data-item" id="card-mov">
                     <div class="data-val" id="val-mov">0.0</div>
@@ -171,6 +171,7 @@
                     auth_note: "* سيتم إرسال تقرير الطوارئ اللحظي إلى هذا الإيميل",
                     login_btn: "حفظ وبدء النظام",
                     live_sensors: "المؤشرات الحيوية", voice_label: "تحليل الاستغاثة الصوتي", voice_inactive: "غير نشط",
+                    status_label: "حالة العامل", secure: "مستقر", danger: "خطر",
                     start_btn: "تفعيل الحماية", active_btn: "النظام نشط",
                     keywords: 'الكلمات المفتاحية: "مساعدة"، "دكتور"، "طوارئ"، "إسعاف"',
                     sim_voice: "تجربة صوت", sim_fall: "تجربة سقوط",
@@ -188,6 +189,7 @@
                     auth_note: "* Live emergency report will be sent to this email",
                     login_btn: "Save & Start",
                     live_sensors: "Live Biomarkers", voice_label: "Voice Distress Analysis", voice_inactive: "Inactive",
+                    status_label: "Worker Status", secure: "Secure", danger: "Danger",
                     start_btn: "Activate Guard", active_btn: "System Active",
                     keywords: 'Keywords: "Help", "Doctor", "Emergency", "Mimo"',
                     sim_voice: "Test Voice", sim_fall: "Test Fall",
@@ -217,6 +219,11 @@
                 document.getElementById('txt-live-sensors').innerText = t.live_sensors;
                 document.getElementById('txt-voice-label').innerText = t.voice_label;
                 document.getElementById('voice-txt').innerText = t.voice_inactive;
+                
+                // تحديث نصوص حالة العامل
+                document.getElementById('txt-status-label').innerText = t.status_label;
+                document.getElementById('val-status').innerText = t.secure;
+                
                 document.getElementById('txt-start-btn').innerText = t.start_btn;
                 document.getElementById('txt-keywords').innerText = t.keywords;
                 document.getElementById('sim-voice').innerText = t.sim_voice;
@@ -248,7 +255,7 @@
         };
 
         const core = {
-            active: false, recognition: null, hrInterval: null, countdownTimer: null,
+            active: false, recognition: null, countdownTimer: null,
             fallState: { phase: 'idle', timestamp: 0 },
             
             patientResponse: "", 
@@ -295,7 +302,11 @@
                     }
                     
                     if (window.DeviceMotionEvent) window.addEventListener('devicemotion', core.handleMotion);
-                    core.hrInterval = setInterval(() => { document.getElementById('val-hr').innerText = Math.floor(Math.random()*(85-65+1)+65); }, 2000);
+                    
+                    // تحويل الحالة إلى مستقر عند التفعيل
+                    document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].secure;
+                    document.getElementById('val-status').style.color = "var(--green)";
+                    
                     core.active = true;
                     ui.btnUpdate(true);
                 } catch(e) { alert("Microphone Required"); }
@@ -306,7 +317,6 @@
                 core.isRecordingResponse = false;
                 ui.btnUpdate(false);
                 if(core.recognition) core.recognition.abort();
-                clearInterval(core.hrInterval);
                 window.removeEventListener('devicemotion', core.handleMotion);
                 document.getElementById('voice-txt').innerText = CONFIG.TEXT[app.lang].voice_inactive;
             },
@@ -360,6 +370,10 @@
                 core.active = false; 
                 core.isRecordingResponse = true; 
                 core.patientResponse = ""; 
+                
+                // تحويل الحالة إلى خطر عند الإنذار
+                document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].danger;
+                document.getElementById('val-status').style.color = "var(--accent)";
 
                 app.showScreen('doctor-screen');
                 document.getElementById('txt-alert-header').innerText = `🚨 ${reason} 🚨`;
@@ -470,6 +484,10 @@
                 core.fallState.phase = 'idle'; 
                 core.isRecordingResponse = false;
                 core.aiIsSpeaking = false; 
+                
+                // إعادة الحالة لمستقر عند الإلغاء
+                document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].secure;
+                document.getElementById('val-status').style.color = "var(--green)";
                 
                 document.querySelector('.widget-area').style.display = 'none';
                 document.getElementById('txt-assurance').style.display = 'none';
