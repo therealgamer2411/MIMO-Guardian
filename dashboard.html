@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIMO Dispatch 3D - New Valley</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { margin: 0; padding: 0; background: #050505; color: #fff; font-family: sans-serif; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        .maplibregl-control-container { display: none !important; } 
+        
+        .overlay { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .header-panel { background: rgba(10, 10, 10, 0.85); border: 1px solid #D4AF37; padding: 15px 25px; border-radius: 12px; pointer-events: auto; backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center; }
+        
+        .alert-panel { background: rgba(20, 0, 0, 0.9); border: 2px solid #ff003c; padding: 20px; border-radius: 12px; pointer-events: auto; backdrop-filter: blur(10px); transform: translateY(150%); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 30px rgba(255, 0, 60, 0.5); max-width: 400px; }
+        .alert-panel.active { transform: translateY(0); }
+
+        .pulse-marker { width: 35px; height: 35px; background-color: #ff003c; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 25px #ff003c; animation: pulse 1s infinite; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; }
+        @keyframes pulse { 0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 0, 60, 0.8); } 70% { transform: scale(1.3); box-shadow: 0 0 0 25px rgba(255, 0, 60, 0); } 100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 0, 60, 0); } }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="overlay">
+        <div class="header-panel">
+            <div>
+                <h1 class="text-xl font-bold text-[#D4AF37] tracking-wider">MIMO DISPATCH <span class="text-white text-sm">| 3D Operations</span></h1>
+                <p class="text-xs text-green-400 mt-1"><i class="fas fa-circle animate-pulse text-[8px]"></i> متصل بشبكة الاستشعار (Mesh Network)</p>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-mono" id="clock">00:00:00</div>
+                <div id="pending-badge" class="text-xs text-red-500 font-bold hidden mt-1"><i class="fas fa-exclamation-circle"></i> يوجد حالة طوارئ نشطة!</div>
+            </div>
+        </div>
+
+        <div id="alert-card" class="alert-panel mb-4 self-end">
+            <div class="flex items-center gap-3 mb-4 border-b border-red-800 pb-3">
+                <i class="fas fa-exclamation-triangle text-3xl text-red-500 animate-pulse"></i>
+                <h2 class="text-xl font-bold text-white">إنذار سقوط حرج!</h2>
+            </div>
+            <div class="space-y-2 text-sm">
+                <p><span class="text-gray-400">العامل:</span> <span id="worker-name" class="font-bold text-lg text-white">--</span></p>
+                <p><span class="text-gray-400">التشخيص الآلي:</span> <span id="worker-status" class="font-bold text-[#D4AF37]">--</span></p>
+                <p><span class="text-gray-400">الإحداثيات:</span> <span id="worker-coords" class="font-mono text-xs">--</span></p>
+            </div>
+            <button onclick="dispatchAmbulance()" class="w-full mt-5 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition shadow-lg shadow-red-900/50">
+                <i class="fas fa-check-circle"></i> توجيه الفريق وإنهاء الحالة
+            </button>
+        </div>
+    </div>
+
+    <script>
+        setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-US', {hour12: false}), 1000);
+
+        const MAPTILER_KEY = 'oO3lRfVkK6Q7CvFToTuW'; 
+        
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
+            center: [30.5511, 25.4321], 
+            zoom: 6, 
+            pitch: 0,
+            antialias: true
+        });
+
+        map.on('load', () => {
+            map.addSource('terrain-source', {
+                type: 'raster-dem',
+                url: `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`,
+                tileSize: 256
+            });
+            map.setTerrain({ source: 'terrain-source', exaggeration: 2.0 }); 
+        });
+
+        let currentMarker = null;
+        let activeAlertTimestamp = null; // متغير لحفظ الـ ID بتاع الحالة الحالية
+
+        function resetDashboard() {
+            document.getElementById('alert-card').classList.remove('active');
+            document.getElementById('pending-badge').classList.add('hidden');
+            if (currentMarker) currentMarker.remove();
+            map.flyTo({ zoom: 6, pitch: 0, bearing: 0, speed: 0.8 }); 
+            activeAlertTimestamp = null;
+        }
+
+        function triggerMapAlert(lat, lng, name, status, timestamp) {
+            document.getElementById('worker-name').innerText = name;
+            document.getElementById('worker-status').innerText = status;
+            document.getElementById('worker-coords').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            
+            document.getElementById('alert-card').classList.add('active');
+            document.getElementById('pending-badge').classList.remove('hidden');
+
+            if (currentMarker) currentMarker.remove();
+
+            const el = document.createElement('div');
+            el.className = 'pulse-marker';
+            el.innerHTML = '<i class="fas fa-crosshairs"></i>';
+
+            currentMarker = new maplibregl.Marker({ element: el })
+                .setLngLat([lng, lat])
+                .addTo(map);
+
+            map.flyTo({
+                center: [lng, lat],
+                zoom: 16.5,
+                pitch: 65, 
+                bearing: 30, 
+                speed: 1.2,
+                curve: 1.5,
+                essential: true
+            });
+            
+            try { new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play(); } catch(e){}
+            
+            // تم إزالة المؤقت الزمني تماماً.. الحالة لن تختفي أبداً حتى يتم الرد
+        }
+
+        function dispatchAmbulance() {
+            if (activeAlertTimestamp) {
+                // حفظ الحالة في الذاكرة كـ "مستجابة" عشان متظهرش تاني
+                let resolvedAlerts = JSON.parse(localStorage.getItem('mimo_resolved_alerts') || '[]');
+                resolvedAlerts.push(activeAlertTimestamp);
+                localStorage.setItem('mimo_resolved_alerts', JSON.stringify(resolvedAlerts));
+            }
+            
+            alert("تم إرسال إحداثيات الـ 3D لسيارة الإسعاف، وتم إغلاق البلاغ بنجاح.");
+            resetDashboard();
+        }
+
+        // ==========================================
+        // الربط الفعلي مع JSONBin بنظام إدارة الحالات
+        // ==========================================
+        const JSONBIN_URL = "https://api.jsonbin.io/v3/b/6a283991da38895dfea15041"; 
+        const JSONBIN_KEY = "$2a$10$2w5jniqPgIpAcy/JGvEuneWNnvQdK65xfJiwg3dmKl.1Zx20oJ2zK"; 
+
+        async function checkForEmergencies() {
+            try {
+                const response = await fetch(JSONBIN_URL, { headers: { 'X-Master-Key': JSONBIN_KEY } });
+                const data = await response.json();
+                const record = data.record;
+
+                if (record && record.timestamp) {
+                    // سحب قائمة الحالات اللي تم الاستجابة لها مسبقاً من ذاكرة المتصفح
+                    let resolvedAlerts = JSON.parse(localStorage.getItem('mimo_resolved_alerts') || '[]');
+
+                    // لو الحالة دي مش في قائمة "المستجاب لها" وكمان مش معروضة حالياً قدامي
+                    if (!resolvedAlerts.includes(record.timestamp) && activeAlertTimestamp !== record.timestamp) {
+                        
+                        activeAlertTimestamp = record.timestamp; // نعينها كحالة نشطة
+                        
+                        const locString = record.location;
+                        const coordsMatch = locString ? locString.match(/q=([\d.-]+),([\d.-]+)/) : null;
+                        
+                        const lat = coordsMatch ? parseFloat(coordsMatch[1]) : 25.4321;
+                        const lng = coordsMatch ? parseFloat(coordsMatch[2]) : 30.5511;
+                        
+                        // إطلاق الإنذار (وهيفضل شغال لحد ما نضغط على الزرار)
+                        triggerMapAlert(lat, lng, record.user || 'محمد عبد اللاه', record.ai_summary || 'سقوط حرج', record.timestamp);
+                    }
+                }
+            } catch (error) {}
+        }
+
+        setInterval(checkForEmergencies, 3000);
+    </script>
+</body>
+</html>
