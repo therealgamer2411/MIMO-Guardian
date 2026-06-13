@@ -257,8 +257,10 @@
             active: false, recognition: null, countdownTimer: null,
             fallState: { phase: 'idle', timestamp: 0 },
 
-            // ذاكرة تسجيل الاهتزازات الدقيقة بعد الارتطام
+            // Buffer لتجميع الاهتزازات الدقيقة بعد الارتطام
             microTremorsBuffer: [],
+            impactDetectedAt: 0,
+            recoveryDetected: false,
 
             patientResponse: "", 
             isRecordingResponse: false,
@@ -277,7 +279,7 @@
 
                         core.recognition.onstart = () => { 
                             if(core.isRecordingResponse) document.getElementById('txt-listening').style.display = 'block';
-                            else document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
+                            else document.getElementById('voice-txt').innerText = app.lang==='ar' ? "استماع..." : "Listening..."; 
                         };
 
                         core.recognition.onresult = (event) => {
@@ -298,9 +300,11 @@
                                 document.getElementById('txt-ai-question').innerText = `"${latest}"`; 
                             }
                         };
+
                         core.recognition.onend = () => { 
                             if(core.active || core.isRecordingResponse) core.recognition.start(); 
                         };
+
                         core.recognition.start();
                     }
 
@@ -318,19 +322,26 @@
                 core.active = false;
                 core.isRecordingResponse = false;
                 core.microTremorsBuffer = [];
+                core.impactDetectedAt = 0;
+                core.recoveryDetected = false;
                 ui.btnUpdate(false);
                 if(core.recognition) core.recognition.abort();
                 window.removeEventListener('devicemotion', core.handleMotion);
                 document.getElementById('voice-txt').innerText = CONFIG.TEXT[app.lang].voice_inactive;
             },
 
-            // خوارزمية السقوط -> الارتطام -> تحليل الاهتزازات الدقيقة -> القرار النهائي
+            // خوارزمية: سقوط حر -> ارتطام -> تهدئة -> تحليل الاهتزازات الدقيقة -> قرار نهائي
             handleMotion: (e) => {
                 if(!core.active) return;
+
                 const acc = e.accelerationIncludingGravity;
                 if(!acc) return;
 
-                const rawTotal = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+                const x = acc.x || 0;
+                const y = acc.y || 0;
+                const z = acc.z || 0;
+
+                const rawTotal = Math.sqrt(x**2 + y**2 + z**2);
                 const totalG = rawTotal / 9.8;
                 document.getElementById('val-mov').innerText = totalG.toFixed(1);
 
@@ -352,33 +363,76 @@
                     }
 
                     if (totalG > 2.5) {
-                        state.phase = 'impact';
+                        state.phase = 'settling';
                         state.timestamp = now;
-                        core.microTremorsBuffer = [totalG];
+                        core.impactDetectedAt = now;
+                        core.microTremorsBuffer = [];
+                        core.recoveryDetected = false;
                     }
                     return;
                 }
 
-                // 3) تسجيل الاهتزازات الدقيقة لمدة محددة ثم تحليلها
-                if (state.phase === 'impact') {
+                // 3) تهدئة قصيرة بعد الخبطة حتى لا تُحسب ارتدادات الارتطام كحركة إرادية
+                if (state.phase === 'settling') {
+                    if (totalG > 1.8) {
+                        core.recoveryDetected = true; // حركة عنيفة مباشرة بعد الارتطام
+                    }
+
+                    if (now - state.timestamp >= 500) {
+                        state.phase = 'monitoring';
+                        state.timestamp = now;
+                        core.microTremorsBuffer = [];
+                    }
+                    return;
+                }
+
+                // 4) تسجيل الاهتزازات الدقيقة
+                if (state.phase === 'monitoring') {
                     core.microTremorsBuffer.push(totalG);
 
-                    if (now - state.timestamp > 2500) {
-                        const maxG = Math.max(...core.microTremorsBuffer);
-                        const minG = Math.min(...core.microTremorsBuffer);
+                    if (totalG > 1.8) {
+                        core.recoveryDetected = true;
+                    }
+
+                    if (now - state.timestamp >= 2000) {
+                        const samples = core.microTremorsBuffer.length ? core.microTremorsBuffer : [totalG];
+                        const maxG = Math.max(...samples);
+                        const minG = Math.min(...samples);
                         const tremorRange = maxG - minG;
+                        const avgG = samples.reduce((sum, v) => sum + v, 0) / samples.length;
+
+                        // 5) نظام درجات لتقليل الإنذارات الخاطئة مع الحفاظ على الحساسية للحالات الحرجة
+                        let analysisScore = 0;
+
+                        if (tremorRange < 0.02) {
+                            // سكون شبه تام: غالبًا سقوط هاتف فقط على سطح صلب
+                            analysisScore = 15;
+                        } else if (tremorRange < 0.8) {
+                            // اهتزازات دقيقة جدًا: مؤشر قوي على فقدان وعي / عدم قدرة على الحركة
+                            analysisScore = 85;
+                        } else {
+                            // حركة كبيرة: غالبًا الشخص استعاد توازنه أو ما يزال يتعامل مع الهاتف
+                            analysisScore = 10;
+                        }
+
+                        // إذا كان المتوسط قريبًا من 1G فهذا يعزز حالة الثبات بعد السقوط
+                        if (avgG >= 0.85 && avgG <= 1.15) analysisScore += 5;
+
+                        // الحركة العنيفة المتأخرة تقلل احتمالية فقدان الوعي
+                        if (core.recoveryDetected) analysisScore -= 20;
+
+                        // وجود اهتزازات مستمرة أو قفزات كبيرة بعد السقوط يقلل القرار
+                        if (maxG > 2.2) analysisScore -= 10;
 
                         state.phase = 'idle';
                         core.microTremorsBuffer = [];
+                        core.recoveryDetected = false;
+                        core.impactDetectedAt = 0;
 
-                        if (tremorRange < 0.02) {
-                            ui.toast(app.lang === 'ar' ? 'تجاهل: سقوط هاتف فقط' : 'Ignored: Phone Drop Only');
-                        } 
-                        else if (tremorRange >= 0.02 && tremorRange < 0.8) {
+                        if (analysisScore >= 70) {
                             core.triggerAlarm(app.lang === 'ar' ? 'سقوط وفقدان وعي (مؤكد)' : 'Confirmed Fall & Unconsciousness');
-                        } 
-                        else {
-                            ui.toast(app.lang === 'ar' ? 'تجاهل: حركة إرادية' : 'Ignored: Voluntary Movement');
+                        } else {
+                            ui.toast(app.lang === 'ar' ? 'تجاهل: حركة غير حرجة' : 'Ignored: Non-critical Motion');
                         }
                     }
                 }
@@ -387,7 +441,7 @@
             sim: (type) => {
                 if(!core.active) return ui.toast(app.lang==='ar'?"فعل النظام أولاً":"Activate System First");
                 if(type === 'voice') {
-                    document.getElementById('voice-txt').innerText = app.lang==='ar'?"مساعدة!":"Help!";
+                    document.getElementById('voice-txt').innerText = app.lang==='ar' ? "مساعدة!" : "Help!";
                     setTimeout(() => core.triggerAlarm(app.lang==='ar'?"استغاثة":"Help Call"), 800);
                 } else if(type === 'fall') {
                     core.triggerAlarm(app.lang==='ar'?"سقوط وسكون (تجربة)":"Fall & Stillness");
@@ -398,9 +452,9 @@
                 window.speechSynthesis.cancel(); 
                 const msg = new SpeechSynthesisUtterance(txt);
                 msg.lang = app.lang === 'ar' ? 'ar-SA' : 'en-US';
-               msg.volume = 1; 
-                msg.rate = app.lang === 'ar' ? 1.25 : 1.1; // تسريع إيقاع الكلام ليكون طبيعي
-                msg.pitch = 1.05; // تنعيم الصوت لتقليل النبرة الآلية
+                msg.volume = 1; 
+                msg.rate = app.lang === 'ar' ? 1.25 : 1.1;
+                msg.pitch = 1.05;
 
                 if(onEndCallback) {
                     msg.onend = onEndCallback;
@@ -433,7 +487,6 @@
                 core.aiIsSpeaking = true;
 
                 core.speakText(CONFIG.TEXT[app.lang].ai_ask, () => {
-                    // منع استكمال العملية وتفعيل العداد إذا تم الإلغاء
                     if(!document.getElementById('doctor-screen').classList.contains('active')) return;
 
                     core.aiIsSpeaking = false; 
@@ -444,7 +497,8 @@
                     countEl.style.display = 'flex';
 
                     core.countdownTimer = setInterval(() => {
-                        c--; countEl.innerText = c;
+                        c--;
+                        countEl.innerText = c;
 
                         if(c <= 0) {
                             clearInterval(core.countdownTimer);
@@ -461,7 +515,7 @@
                                         const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
                                         core.sendWebhook(reason, mapLink);
                                     },
-                                    (error) => { core.sendWebhook(reason, "GPS Unavailable"); },
+                                    () => { core.sendWebhook(reason, "GPS Unavailable"); },
                                     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
                                 );
                             } else {
@@ -524,12 +578,14 @@
             },
 
             cancelAlarm: () => {
-                window.speechSynthesis.cancel(); // الإسكات الفوري للـ AI
+                window.speechSynthesis.cancel();
                 clearInterval(core.countdownTimer);
                 app.showScreen('app-container');
                 document.querySelectorAll('.data-item').forEach(e => e.classList.remove('warning-border'));
                 core.fallState.phase = 'idle'; 
                 core.microTremorsBuffer = [];
+                core.impactDetectedAt = 0;
+                core.recoveryDetected = false;
                 core.isRecordingResponse = false;
                 core.aiIsSpeaking = false; 
 
@@ -543,7 +599,6 @@
                 core.start();
             }
         };
-
         const ui = {
             toast: (msg) => { const t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 3000); },
             btnUpdate: (active) => {
