@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MIMO Guardian</title>
-    
+    <title>MIMO Guardian - Mesh Edition</title>
+
     <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <style>
-        /* --- DESIGN SYSTEM --- */
-        :root { --bg: #050505; --card: #111; --primary: #00f2ff; --accent: #ff003c; --green: #00ff9d; --text: #ffffff; }
+        :root { --bg: #050505; --card: #111; --primary: #00f2ff; --accent: #ff003c; --green: #00ff9d; --orange: #ff9500; --text: #ffffff; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; user-select: none; }
         body { margin: 0; padding: 0; background-color: var(--bg); color: var(--text); font-family: 'Tajawal', sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         body[dir="ltr"] { font-family: 'Roboto', sans-serif; }
-        
+
         .screen { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; flex-direction: column; transition: opacity 0.4s ease; opacity: 0; pointer-events: none; z-index: 0; }
         .screen.active { opacity: 1; pointer-events: auto; z-index: 10; }
 
@@ -39,9 +38,16 @@
 
         .status-card { width: 90%; max-width: 400px; padding: 20px; background: #111; border: 1px solid #222; border-radius: 20px; margin-bottom: 20px; text-align: center; }
         .grid-data { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        .data-item { background: #0a0a0a; padding: 15px 10px; border-radius: 12px; border: 1px solid #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .data-item { background: #0a0a0a; padding: 15px 10px; border-radius: 12px; border: 1px solid #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; }
         .data-val { font-size: 1.3rem; font-weight: bold; color: var(--primary); font-family: monospace; }
         .data-label { font-size: 0.75rem; color: #666; margin-top: 5px; }
+
+        /* Mesh status indicator */
+        .mesh-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; background: #1a1a1a; }
+        .mesh-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; }
+        .mesh-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .mesh-dot.offline { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+        .mesh-dot.mesh-active { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
 
         .start-btn { width: 90%; max-width: 400px; padding: 25px; background: var(--primary); color: #000; font-size: 1.6rem; font-weight: 900; border: none; border-radius: 18px; cursor: pointer; box-shadow: 0 0 40px rgba(0, 242, 255, 0.15); transition: 0.3s; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .start-btn.active { background: var(--green); box-shadow: 0 0 40px rgba(0, 255, 157, 0.2); }
@@ -52,13 +58,13 @@
         /* ALERT SCREEN */
         #doctor-screen { z-index: 50; background: rgba(5, 5, 5, 0.98); align-items: center; justify-content: flex-start; padding-top: 60px; }
         .alert-header { width: 100%; padding: 25px; background: var(--accent); color: #fff; text-align: center; font-weight: bold; font-size: 1.4rem; animation: flash 1s infinite; border-bottom: 4px solid #a00; position: absolute; top: 0; left: 0; z-index: 60; }
-        
+
         .question-box { margin-top: 30px; text-align: center; padding: 20px; }
         .question-text { font-size: 1.4rem; color: var(--primary); margin-bottom: 10px; font-weight: bold; line-height: 1.4; }
         .listening-indicator { font-size: 0.9rem; color: #aaa; animation: pulse 1s infinite; display: none; }
-        
+
         .countdown-circle { margin-top: 20px; width: 90px; height: 90px; border-radius: 50%; border: 4px solid var(--accent); background: #000; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 30px var(--accent); }
-        
+
         #txt-assurance { margin-top: 20px; color: var(--green); font-size: 1.1rem; text-align: center; display: none; animation: flash 2s infinite; padding: 15px; border: 1px solid var(--green); border-radius: 10px; background: rgba(0, 255, 157, 0.1); width: 90%; }
 
         .cancel-btn-center { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: #222; border: 2px solid #444; color: #fff; padding: 15px 40px; border-radius: 50px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; gap: 10px; }
@@ -68,7 +74,11 @@
 
         #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color:#fff; padding: 10px 25px; border-radius: 30px; font-size: 0.9rem; opacity: 0; transition: 0.3s; z-index: 20000; pointer-events: none; border: 1px solid #444; }
         .warning-border { border-color: var(--accent) !important; animation: flash 0.5s infinite; }
-        
+
+        /* Audio visualizer */
+        .audio-viz { display: flex; align-items: flex-end; gap: 2px; height: 30px; margin-top: 10px; justify-content: center; }
+        .audio-bar { width: 4px; background: var(--primary); border-radius: 2px; transition: height 0.1s; }
+
         @keyframes spin { 100% { transform: rotate(-360deg); } }
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
         @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
@@ -105,7 +115,13 @@
     <div id="app-container" class="screen">
         <header>
             <div class="logo">MIMO <span>AI</span></div>
-            <i class="fas fa-wifi" style="color:var(--green)"></i>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div class="mesh-status" id="mesh-indicator">
+                    <div class="mesh-dot" id="mesh-dot"></div>
+                    <span id="mesh-text">--</span>
+                </div>
+                <i class="fas fa-wifi" style="color:var(--green)" id="wifi-icon"></i>
+            </div>
         </header>
         <div class="status-card">
             <div id="txt-live-sensors" style="font-size:0.8rem; color:#666; margin-bottom:10px;">--</div>
@@ -118,11 +134,23 @@
                     <div class="data-val" id="val-mov">0.0</div>
                     <div class="data-label">G-Force</div>
                 </div>
+                <div class="data-item" id="card-gyro">
+                    <div class="data-val" id="val-gyro">0°</div>
+                    <div class="data-label" id="txt-gyro-label">Orientation</div>
+                </div>
+                <div class="data-item" id="card-battery">
+                    <div class="data-val" id="val-battery">--%</div>
+                    <div class="data-label" id="txt-battery-label">Battery</div>
+                </div>
                 <div class="data-item" id="card-voice" style="grid-column: span 2;">
                     <div class="data-val" style="font-size:1rem;">
                         <span id="voice-txt">--</span>
                     </div>
                     <div id="txt-voice-label" class="data-label">--</div>
+                </div>
+                <div class="data-item" id="card-audio" style="grid-column: span 2;">
+                    <div class="audio-viz" id="audio-viz"></div>
+                    <div class="data-label" id="txt-audio-label">Audio Level</div>
                 </div>
             </div>
         </div>
@@ -133,12 +161,21 @@
         <div class="sim-bar">
             <div class="sim-chip" onclick="core.sim('voice')">🗣️ <span id="sim-voice"></span></div>
             <div class="sim-chip" onclick="core.sim('fall')">🤕 <span id="sim-fall"></span></div>
+            <div class="sim-chip" onclick="core.sim('scream')">😱 <span id="sim-scream">Test Scream</span></div>
+        </div>
+        <div style="width:90%; max-width:400px; margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+            <button class="sim-chip" onclick="meshManager.pairDevice()" id="btn-pair-bt" style="background:#1a1a1a; border:1px solid var(--primary); color:var(--primary);">
+                <i class="fab fa-bluetooth-b"></i> <span id="txt-pair-bt">Pair Mesh Device</span>
+            </button>
+            <button class="sim-chip" onclick="meshManager.scanMesh()" id="btn-scan-mesh" style="background:#1a1a1a; border:1px solid var(--green); color:var(--green);">
+                <i class="fas fa-network-wired"></i> <span id="txt-scan-mesh">Scan Mesh</span>
+            </button>
         </div>
     </div>
 
     <div id="doctor-screen" class="screen">
         <div class="alert-header" id="txt-alert-header">🚨 -- 🚨</div>
-        
+
         <div class="question-box" id="question-area">
             <div id="txt-ai-question" class="question-text">--</div>
             <div id="txt-listening" class="listening-indicator">🎙️ Listening... / استماع</div>
@@ -147,7 +184,7 @@
         <div id="txt-assurance">--</div> 
 
         <div class="countdown-circle" id="countdown-display">10</div>
-        
+
         <div class="widget-area" id="ai-container"></div>
 
         <button class="cancel-btn-center" onclick="core.cancelAlarm()">
@@ -158,11 +195,41 @@
     <div id="toast"></div>
 
     <script>
+        // ==================== CONFIGURATION ====================
         const CONFIG = {
             WEBHOOK_URL: "https://hook.eu1.make.com/booixboep6okeq0ypcgrbihbtq45emg7", 
             AGENT_IDS: {
                 ar: "agent_5601kfrvwrrxfxgafkezx421fe01", 
                 en: "agent_5601kfrvwrrxfxgafkezx421fe01"  
+            },
+            FALL: {
+                FREEFALL_THRESHOLD: 2.5,
+                FREEFALL_TIMEOUT: 800,
+                IMPACT_THRESHOLD: 15.0,
+                IMPACT_CANCEL_THRESHOLD: 8.0,
+                SILENCE_DURATION: 2500,
+                SILENCE_THRESHOLD: 3.0,
+                SILENCE_SAMPLE_COUNT: 10,
+                GYRO_FALL_THRESHOLD: 60  // درجات تغير الزاوية
+            },
+            AUDIO: {
+                SCREAM_THRESHOLD: 85,     // dB
+                SAMPLE_RATE: 44100,
+                FFT_SIZE: 2048,
+                SCREAM_FREQ_MIN: 1000,
+                SCREAM_FREQ_MAX: 3000
+            },
+            BATTERY: {
+                CRITICAL: 0.05,
+                LOW: 0.15,
+                CHECK_INTERVAL: 30000
+            },
+            MESH: {
+                SERVICE_UUID: '0000180a-0000-1000-8000-00805f9b34fb',
+                CHARACTERISTIC_UUID: '00002a00-0000-1000-8000-00805f9b34fb',
+                ALERT_UUID: '00002a01-0000-1000-8000-00805f9b34fb',
+                SCAN_TIMEOUT: 10000,
+                RETRY_INTERVAL: 5000
             },
             TEXT: {
                 ar: {
@@ -174,14 +241,20 @@
                     status_label: "حالة العامل", secure: "مستقر", danger: "خطر",
                     start_btn: "تفعيل الحماية", active_btn: "النظام نشط",
                     keywords: 'الكلمات المفتاحية: "مساعدة"، "دكتور"، "طوارئ"، "إسعاف"',
-                    sim_voice: "تجربة صوت", sim_fall: "تجربة سقوط",
+                    sim_voice: "تجربة صوت", sim_fall: "تجربة سقوط", sim_scream: "تجربة صراخ",
                     alert_header: "تم رصد حالة طوارئ", cancel_btn: "إلغاء الإنذار",
                     triggers: ['مساعدة', 'دكتور', 'طوارئ', 'إسعاف', 'اسعاف', 'حقوني', 'انقذني', 'ميمو', 'ألم'],
                     voice_lang: 'ar-EG', connecting: "📡 جاري إرسال التقرير...", sent: "✅ تم الإرسال للبريد!",
                     ai_ask: "هل أنت بخير؟.. إذا كنت سليماً اضغط إلغاء.. وإذا كنت مصاباً، أخبرني مكان الألم فوراً.", 
                     listening: "جاري تسجيل ردك...",
                     assurance_msg: "تم إرسال الإنذار. المساعدة قادمة. اضغط للتحدث مع المسعف الآلي 👇",
-                    assurance_speak: "تم إبلاغ الطوارئ بحالتك عبر البريد. المساعدة في الطريق. أنا المسعف الآلي، يمكنك سؤالي عن الإسعافات الأولية."
+                    assurance_speak: "تم إبلاغ الطوارئ بحالتك عبر البريد. المساعدة في الطريق. أنا المسعف الآلي، يمكنك سؤالي عن الإسعافات الأولية.",
+                    mesh_online: "متصل", mesh_offline: "غير متصل", mesh_active: "شبكة Mesh",
+                    mesh_paired: "جهاز مقترن", mesh_scanning: "جاري البحث...",
+                    battery_critical: "⚠️ بطارية حرجة! إرسال إنذار مبكر",
+                    battery_low: "🔋 بطارية منخفضة",
+                    gyro_label: "الاتجاه", battery_label: "البطارية", audio_label: "مستوى الصوت",
+                    pair_bt: "ربط جهاز Mesh", scan_mesh: "بحث شبكة"
                 },
                 en: {
                     login_title: "Emergency Setup", user_ph: "Your Name", 
@@ -192,21 +265,529 @@
                     status_label: "Worker Status", secure: "Secure", danger: "Danger",
                     start_btn: "Activate Guard", active_btn: "System Active",
                     keywords: 'Keywords: "Help", "Doctor", "Emergency", "Mimo"',
-                    sim_voice: "Test Voice", sim_fall: "Test Fall",
+                    sim_voice: "Test Voice", sim_fall: "Test Fall", sim_scream: "Test Scream",
                     alert_header: "EMERGENCY DETECTED", cancel_btn: "Cancel Alarm",
                     triggers: ['help', 'doctor', 'emergency', 'ambulance', 'mimo', 'save me', 'pain'],
                     voice_lang: 'en-US', connecting: "📡 Sending Report...", sent: "✅ Sent to Email!",
                     ai_ask: "Are you okay?.. Press Cancel if safe.. Or tell me where it hurts immediately.",
                     listening: "Recording your response...",
                     assurance_msg: "Alert Sent. Help is coming. Talk to AI Medic below 👇",
-                    assurance_speak: "Emergency reported via email. Help is on the way. I am the AI Medic, you can ask me for first aid instructions."
+                    assurance_speak: "Emergency reported via email. Help is on the way. I am the AI Medic, you can ask me for first aid instructions.",
+                    mesh_online: "Online", mesh_offline: "Offline", mesh_active: "Mesh Network",
+                    mesh_paired: "Device Paired", mesh_scanning: "Scanning...",
+                    battery_critical: "⚠️ Critical Battery! Sending early alert",
+                    battery_low: "🔋 Low Battery",
+                    gyro_label: "Orientation", battery_label: "Battery", audio_label: "Audio Level",
+                    pair_bt: "Pair Mesh Device", scan_mesh: "Scan Mesh"
                 }
             }
         };
 
+        // ==================== SERVICE WORKER ====================
+        const swManager = {
+            registration: null,
+            init: async () => {
+                if ('serviceWorker' in navigator) {
+                    try {
+                        // Inline Service Worker for offline storage
+                        const swCode = `
+                            const CACHE_NAME = 'mimo-guardian-v1';
+                            const urlsToCache = ['/'];
+
+                            self.addEventListener('install', e => {
+                                e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache)));
+                                self.skipWaiting();
+                            });
+
+                            self.addEventListener('fetch', e => {
+                                e.respondWith(
+                                    caches.match(e.request).then(r => r || fetch(e.request))
+                                );
+                            });
+
+                            self.addEventListener('sync', e => {
+                                if (e.tag === 'send-alert') {
+                                    e.waitUntil(sendPendingAlerts());
+                                }
+                            });
+
+                            async function sendPendingAlerts() {
+                                const db = await openDB('mimo-db', 1);
+                                const alerts = await db.getAll('pending-alerts');
+                                for (const alert of alerts) {
+                                    try {
+                                        await fetch(alert.url, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(alert.data)
+                                        });
+                                        await db.delete('pending-alerts', alert.id);
+                                    } catch(e) { break; }
+                                }
+                            }
+
+                            function openDB(name, version) {
+                                return new Promise((resolve, reject) => {
+                                    const req = indexedDB.open(name, version);
+                                    req.onerror = () => reject(req.error);
+                                    req.onsuccess = () => resolve({
+                                        getAll: (store) => new Promise((res, rej) => {
+                                            const tx = req.result.transaction(store, 'readonly');
+                                            const data = [];
+                                            tx.objectStore(store).openCursor().onsuccess = (e) => {
+                                                const cursor = e.target.result;
+                                                if (cursor) { data.push(cursor.value); cursor.continue(); }
+                                                else res(data);
+                                            };
+                                        }),
+                                        delete: (store, id) => new Promise((res, rej) => {
+                                            const tx = req.result.transaction(store, 'readwrite');
+                                            tx.objectStore(store).delete(id).onsuccess = () => res();
+                                        })
+                                    });
+                                    req.onupgradeneeded = (e) => {
+                                        e.target.result.createObjectStore('pending-alerts', { keyPath: 'id', autoIncrement: true });
+                                    };
+                                });
+                            }
+                        `;
+
+                        const blob = new Blob([swCode], { type: 'application/javascript' });
+                        const swUrl = URL.createObjectURL(blob);
+                        swManager.registration = await navigator.serviceWorker.register(swUrl);
+
+                        // Request notification permission
+                        if ('Notification' in window) {
+                            await Notification.requestPermission();
+                        }
+                    } catch(e) { console.log('SW not available:', e); }
+                }
+            }
+        };
+
+        // ==================== INDEXEDDB ====================
+        const dbManager = {
+            db: null,
+            init: async () => {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('mimo-db', 1);
+                    req.onerror = () => reject(req.error);
+                    req.onsuccess = () => { dbManager.db = req.result; resolve(); };
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('pending-alerts')) {
+                            db.createObjectStore('pending-alerts', { keyPath: 'id', autoIncrement: true });
+                        }
+                        if (!db.objectStoreNames.contains('sensor-logs')) {
+                            db.createObjectStore('sensor-logs', { keyPath: 'id', autoIncrement: true });
+                        }
+                    };
+                });
+            },
+            saveAlert: async (data) => {
+                if (!dbManager.db) return;
+                const tx = dbManager.db.transaction('pending-alerts', 'readwrite');
+                const store = tx.objectStore('pending-alerts');
+                await store.add({ data, timestamp: Date.now(), url: CONFIG.WEBHOOK_URL });
+            },
+            saveSensorLog: async (data) => {
+                if (!dbManager.db) return;
+                const tx = dbManager.db.transaction('sensor-logs', 'readwrite');
+                const store = tx.objectStore('sensor-logs');
+                await store.add({ ...data, timestamp: Date.now() });
+                // Keep only last 100 logs
+                const count = await store.count();
+                if (count > 100) {
+                    const all = await store.getAll();
+                    for (let i = 0; i < all.length - 100; i++) {
+                        await store.delete(all[i].id);
+                    }
+                }
+            }
+        };
+
+        // ==================== WAKE LOCK ====================
+        const wakeLockManager = {
+            lock: null,
+            request: async () => {
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLockManager.lock = await navigator.wakeLock.request('screen');
+                        wakeLockManager.lock.addEventListener('release', () => {
+                            wakeLockManager.request(); // Re-acquire if released
+                        });
+                    } catch(e) { console.log('Wake Lock denied'); }
+                }
+            },
+            release: () => {
+                if (wakeLockManager.lock) {
+                    wakeLockManager.lock.release();
+                    wakeLockManager.lock = null;
+                }
+            }
+        };
+
+        // ==================== BATTERY MONITOR ====================
+        const batteryManager = {
+            battery: null,
+            init: async () => {
+                if ('getBattery' in navigator) {
+                    batteryManager.battery = await navigator.getBattery();
+                    batteryManager.updateUI();
+                    batteryManager.battery.addEventListener('levelchange', batteryManager.updateUI);
+                    batteryManager.battery.addEventListener('chargingchange', batteryManager.updateUI);
+
+                    // Periodic check
+                    setInterval(batteryManager.checkCritical, CONFIG.BATTERY.CHECK_INTERVAL);
+                }
+            },
+            updateUI: () => {
+                if (!batteryManager.battery) return;
+                const level = Math.round(batteryManager.battery.level * 100);
+                const el = document.getElementById('val-battery');
+                el.innerText = level + '%' + (batteryManager.battery.charging ? ' ⚡' : '');
+                el.style.color = level < 20 ? 'var(--accent)' : (level < 50 ? 'var(--orange)' : 'var(--green)');
+            },
+            checkCritical: () => {
+                if (!batteryManager.battery) return;
+                const level = batteryManager.battery.level;
+                if (level <= CONFIG.BATTERY.CRITICAL) {
+                    ui.toast(CONFIG.TEXT[app.lang].battery_critical);
+                    // Trigger early alert
+                    core.triggerAlarm(app.lang === 'ar' ? 'بطارية حرجة' : 'Critical Battery');
+                } else if (level <= CONFIG.BATTERY.LOW) {
+                    ui.toast(CONFIG.TEXT[app.lang].battery_low);
+                }
+            }
+        };
+
+        // ==================== GYROSCOPE & ORIENTATION ====================
+        const gyroManager = {
+            lastBeta: 0, lastGamma: 0,
+            init: () => {
+                if (window.DeviceOrientationEvent) {
+                    window.addEventListener('deviceorientation', gyroManager.handleOrientation);
+                }
+            },
+            handleOrientation: (e) => {
+                const beta = e.beta || 0;   // -180 to 180 (front/back)
+                const gamma = e.gamma || 0; // -90 to 90 (left/right)
+
+                // Calculate change from last reading
+                const deltaBeta = Math.abs(beta - gyroManager.lastBeta);
+                const deltaGamma = Math.abs(gamma - gyroManager.lastGamma);
+                const totalDelta = Math.sqrt(deltaBeta**2 + deltaGamma**2);
+
+                gyroManager.lastBeta = beta;
+                gyroManager.lastGamma = gamma;
+
+                // Update UI
+                document.getElementById('val-gyro').innerText = Math.round(beta) + '°';
+
+                // Store for fall detection
+                core.gyroData = { beta, gamma, delta: totalDelta, timestamp: Date.now() };
+
+                // Log to DB
+                dbManager.saveSensorLog({ type: 'gyro', beta, gamma, delta: totalDelta });
+            }
+        };
+
+        // ==================== WEB AUDIO API (Scream Detection) ====================
+        const audioManager = {
+            context: null,
+            analyser: null,
+            microphone: null,
+            dataArray: null,
+            isListening: false,
+
+            init: async () => {
+                try {
+                    audioManager.context = new (window.AudioContext || window.webkitAudioContext)();
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioManager.microphone = audioManager.context.createMediaStreamSource(stream);
+                    audioManager.analyser = audioManager.context.createAnalyser();
+                    audioManager.analyser.fftSize = CONFIG.AUDIO.FFT_SIZE;
+                    audioManager.microphone.connect(audioManager.analyser);
+                    audioManager.dataArray = new Uint8Array(audioManager.analyser.frequencyBinCount);
+                    audioManager.isListening = true;
+                    audioManager.visualize();
+                    audioManager.detectScream();
+                } catch(e) { console.log('Audio API denied'); }
+            },
+
+            visualize: () => {
+                if (!audioManager.isListening) return;
+                audioManager.analyser.getByteFrequencyData(audioManager.dataArray);
+
+                const container = document.getElementById('audio-viz');
+                if (container.children.length === 0) {
+                    for (let i = 0; i < 20; i++) {
+                        const bar = document.createElement('div');
+                        bar.className = 'audio-bar';
+                        bar.style.height = '4px';
+                        container.appendChild(bar);
+                    }
+                }
+
+                const bars = container.children;
+                for (let i = 0; i < bars.length; i++) {
+                    const value = audioManager.dataArray[i * 5] || 0;
+                    const height = Math.max(4, (value / 255) * 30);
+                    bars[i].style.height = height + 'px';
+                    bars[i].style.background = value > 200 ? 'var(--accent)' : 'var(--primary)';
+                }
+
+                requestAnimationFrame(audioManager.visualize);
+            },
+
+            detectScream: () => {
+                if (!audioManager.isListening) return;
+                audioManager.analyser.getByteFrequencyData(audioManager.dataArray);
+
+                // Calculate average in scream frequency range (1000-3000Hz)
+                const binWidth = audioManager.context.sampleRate / 2 / audioManager.analyser.frequencyBinCount;
+                const minBin = Math.floor(CONFIG.AUDIO.SCREAM_FREQ_MIN / binWidth);
+                const maxBin = Math.floor(CONFIG.AUDIO.SCREAM_FREQ_MAX / binWidth);
+
+                let sum = 0;
+                for (let i = minBin; i < maxBin && i < audioManager.dataArray.length; i++) {
+                    sum += audioManager.dataArray[i];
+                }
+                const avg = sum / (maxBin - minBin);
+                const db = 20 * Math.log10(avg / 255) + 100; // Approximate dB
+
+                // Store for analysis
+                core.audioLevel = { db: Math.round(db), timestamp: Date.now() };
+
+                // Trigger if scream detected (high volume in scream frequencies)
+                if (avg > 180 && core.active) {
+                    core.triggerAlarm(app.lang === 'ar' ? 'صراخ مكتشف' : 'Scream Detected');
+                }
+
+                setTimeout(audioManager.detectScream, 500);
+            }
+        };
+
+        // ==================== NETWORK MONITOR ====================
+        const networkManager = {
+            isOnline: navigator.onLine,
+            connectionType: 'unknown',
+            init: () => {
+                window.addEventListener('online', () => { networkManager.isOnline = true; meshManager.updateUI(); });
+                window.addEventListener('offline', () => { networkManager.isOnline = false; meshManager.updateUI(); });
+
+                if ('connection' in navigator) {
+                    const conn = navigator.connection;
+                    networkManager.connectionType = conn.effectiveType || 'unknown';
+                    conn.addEventListener('change', () => {
+                        networkManager.connectionType = conn.effectiveType;
+                    });
+                }
+            }
+        };
+
+        // ==================== BLUETOOTH MESH MANAGER ====================
+        const meshManager = {
+            device: null,
+            server: null,
+            characteristic: null,
+            alertCharacteristic: null,
+            meshDevices: [],
+            isScanning: false,
+
+            // Check if Web Bluetooth is supported
+            isSupported: () => 'bluetooth' in navigator,
+
+            updateUI: () => {
+                const dot = document.getElementById('mesh-dot');
+                const text = document.getElementById('mesh-text');
+                const wifi = document.getElementById('wifi-icon');
+                const t = CONFIG.TEXT[app.lang];
+
+                if (meshManager.device && meshManager.device.gatt.connected) {
+                    dot.className = 'mesh-dot mesh-active';
+                    text.innerText = t.mesh_active;
+                } else if (networkManager.isOnline) {
+                    dot.className = 'mesh-dot active';
+                    text.innerText = t.mesh_online;
+                    wifi.style.color = 'var(--green)';
+                } else {
+                    dot.className = 'mesh-dot offline';
+                    text.innerText = t.mesh_offline;
+                    wifi.style.color = 'var(--accent)';
+                }
+            },
+
+            pairDevice: async () => {
+                if (!meshManager.isSupported()) {
+                    ui.toast(app.lang === 'ar' ? 'Bluetooth غير مدعوم' : 'Bluetooth not supported');
+                    return;
+                }
+
+                const t = CONFIG.TEXT[app.lang];
+                ui.toast(t.mesh_scanning);
+
+                try {
+                    meshManager.device = await navigator.bluetooth.requestDevice({
+                        acceptAllDevices: true,
+                        optionalServices: [CONFIG.MESH.SERVICE_UUID]
+                    });
+
+                    meshManager.device.addEventListener('gattserverdisconnected', meshManager.onDisconnected);
+
+                    meshManager.server = await meshManager.device.gatt.connect();
+                    const service = await meshManager.server.getPrimaryService(CONFIG.MESH.SERVICE_UUID);
+
+                    try {
+                        meshManager.characteristic = await service.getCharacteristic(CONFIG.MESH.CHARACTERISTIC_UUID);
+                        meshManager.alertCharacteristic = await service.getCharacteristic(CONFIG.MESH.ALERT_UUID);
+                    } catch(e) {
+                        // Fallback: use first available characteristic
+                        const characteristics = await service.getCharacteristics();
+                        if (characteristics.length > 0) {
+                            meshManager.characteristic = characteristics[0];
+                            if (characteristics.length > 1) meshManager.alertCharacteristic = characteristics[1];
+                        }
+                    }
+
+                    ui.toast(t.mesh_paired + ': ' + meshManager.device.name);
+                    meshManager.updateUI();
+
+                    // Start listening for mesh alerts from other devices
+                    if (meshManager.characteristic) {
+                        await meshManager.characteristic.startNotifications();
+                        meshManager.characteristic.addEventListener('characteristicvaluechanged', meshManager.onMeshAlert);
+                    }
+
+                } catch(e) {
+                    ui.toast(app.lang === 'ar' ? 'فشل الربط: ' + e.message : 'Pairing failed: ' + e.message);
+                }
+            },
+
+            scanMesh: async () => {
+                if (!meshManager.isSupported()) {
+                    ui.toast(app.lang === 'ar' ? 'Bluetooth غير مدعوم' : 'Bluetooth not supported');
+                    return;
+                }
+
+                if (meshManager.isScanning) return;
+                meshManager.isScanning = true;
+
+                const t = CONFIG.TEXT[app.lang];
+                ui.toast(t.mesh_scanning);
+
+                try {
+                    const device = await navigator.bluetooth.requestDevice({
+                        acceptAllDevices: true,
+                        optionalServices: [CONFIG.MESH.SERVICE_UUID]
+                    });
+
+                    if (!meshManager.meshDevices.find(d => d.id === device.id)) {
+                        meshManager.meshDevices.push({
+                            id: device.id,
+                            name: device.name || 'Unknown',
+                            rssi: device.rssi || -100,
+                            lastSeen: Date.now()
+                        });
+                    }
+
+                    ui.toast(`Found ${meshManager.meshDevices.length} mesh devices`);
+
+                } catch(e) {
+                    console.log('Scan error:', e);
+                }
+
+                meshManager.isScanning = false;
+            },
+
+            onDisconnected: () => {
+                meshManager.device = null;
+                meshManager.server = null;
+                meshManager.characteristic = null;
+                meshManager.updateUI();
+
+                // Auto-reconnect after delay
+                setTimeout(() => {
+                    if (meshManager.device) {
+                        meshManager.device.gatt.connect().catch(() => {});
+                    }
+                }, CONFIG.MESH.RETRY_INTERVAL);
+            },
+
+            onMeshAlert: (event) => {
+                const value = event.target.value;
+                const decoder = new TextDecoder('utf-8');
+                const alertData = decoder.decode(value);
+
+                try {
+                    const alert = JSON.parse(alertData);
+                    ui.toast(`🚨 Mesh Alert from ${alert.user || 'Unknown'}: ${alert.reason}`);
+
+                    // Forward to webhook if online
+                    if (networkManager.isOnline) {
+                        fetch(CONFIG.WEBHOOK_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ...alert,
+                                relayed_by: app.user,
+                                relay_method: 'bluetooth_mesh'
+                            })
+                        }).catch(() => {});
+                    }
+                } catch(e) {
+                    ui.toast('Mesh Alert: ' + alertData);
+                }
+            },
+
+            sendMeshAlert: async (alertData) => {
+                if (!meshManager.alertCharacteristic || !meshManager.server) {
+                    return false; // Cannot send via mesh
+                }
+
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(JSON.stringify(alertData));
+                    await meshManager.alertCharacteristic.writeValue(data);
+                    return true;
+                } catch(e) {
+                    console.log('Mesh send failed:', e);
+                    return false;
+                }
+            },
+
+            broadcastToMesh: async (alertData) => {
+                // Try to send to all known mesh devices
+                let sent = false;
+
+                // First try connected device
+                if (meshManager.device && meshManager.device.gatt.connected) {
+                    sent = await meshManager.sendMeshAlert(alertData);
+                }
+
+                // If not sent, try to connect to other mesh devices
+                if (!sent) {
+                    for (const deviceInfo of meshManager.meshDevices) {
+                        try {
+                            // Note: We can't directly connect without user interaction in Web Bluetooth
+                            // This would need a pre-paired device approach
+                        } catch(e) {}
+                    }
+                }
+
+                return sent;
+            }
+        };
+
+        // ==================== APP ====================
         const app = {
             lang: 'ar', user: 'User', targetEmail: '',
-            init: () => { setTimeout(() => { app.showScreen('lang-screen'); }, 2000); },
+            init: () => { 
+                swManager.init();
+                dbManager.init();
+                networkManager.init();
+                setTimeout(() => { app.showScreen('lang-screen'); }, 2000); 
+            },
             setLang: (l) => {
                 app.lang = l;
                 const t = CONFIG.TEXT[l];
@@ -219,29 +800,33 @@
                 document.getElementById('txt-live-sensors').innerText = t.live_sensors;
                 document.getElementById('txt-voice-label').innerText = t.voice_label;
                 document.getElementById('voice-txt').innerText = t.voice_inactive;
-                
                 document.getElementById('txt-status-label').innerText = t.status_label;
                 document.getElementById('val-status').innerText = t.secure;
-                
                 document.getElementById('txt-start-btn').innerText = t.start_btn;
                 document.getElementById('txt-keywords').innerText = t.keywords;
                 document.getElementById('sim-voice').innerText = t.sim_voice;
                 document.getElementById('sim-fall').innerText = t.sim_fall;
+                document.getElementById('sim-scream').innerText = t.sim_scream;
                 document.getElementById('txt-alert-header').innerText = t.alert_header;
                 document.getElementById('txt-cancel-btn').innerText = t.cancel_btn;
                 document.getElementById('txt-ai-question').innerText = t.ai_ask;
                 document.getElementById('txt-listening').innerText = t.listening;
                 document.getElementById('txt-assurance').innerText = t.assurance_msg;
+                document.getElementById('txt-gyro-label').innerText = t.gyro_label;
+                document.getElementById('txt-battery-label').innerText = t.battery_label;
+                document.getElementById('txt-audio-label').innerText = t.audio_label;
+                document.getElementById('txt-pair-bt').innerText = t.pair_bt;
+                document.getElementById('txt-scan-mesh').innerText = t.scan_mesh;
                 document.getElementById('ai-container').innerHTML = `<elevenlabs-convai agent-id="${CONFIG.AGENT_IDS[l]}"></elevenlabs-convai>`;
+
+                meshManager.updateUI();
                 app.showScreen('auth-screen');
             },
             login: () => {
                 const u = document.getElementById('auth-user').value;
                 const e = document.getElementById('auth-email').value;
-                
                 if(u.length < 2) return ui.toast(app.lang === 'ar' ? "يرجى إدخال اسمك" : "Name Required");
                 if(e.length < 5 || !e.includes('@')) return ui.toast(app.lang === 'ar' ? "يرجى إدخال إيميل صحيح" : "Valid Email Required");
-                
                 app.user = u;
                 app.targetEmail = e;
                 app.showScreen('app-container');
@@ -253,22 +838,12 @@
             }
         };
 
+        // ==================== CORE SYSTEM ====================
         const core = {
             active: false, recognition: null, countdownTimer: null,
-            fallState: { phase: 'idle', timestamp: 0 },
-
-            // Buffer لتجميع الاهتزازات الدقيقة بعد الارتطام
-            microTremorsBuffer: [],
-            impactDetectedAt: 0,
-            recoveryDetected: false,
-
-            // سجل الحركة السابقة للسقوط لتمييز سقوط الهاتف عن سقوط العامل
-            motionHistory: [],
-            motionHistoryWindowMs: 10000,
-            preFallWindow: [],
-            recentVoiceDistressAt: 0,
-            lastVoiceKeyword: "",
-
+            fallState: { phase: 'idle', timestamp: 0, silenceSamples: 0, maxImpact: 0, history: [] },
+            gyroData: null,
+            audioLevel: null,
             patientResponse: "", 
             isRecordingResponse: false,
             aiIsSpeaking: false, 
@@ -277,6 +852,19 @@
 
             start: async () => {
                 try {
+                    // Request Wake Lock
+                    await wakeLockManager.request();
+
+                    // Start Audio Analysis
+                    await audioManager.init();
+
+                    // Start Gyroscope
+                    gyroManager.init();
+
+                    // Start Battery Monitor
+                    await batteryManager.init();
+
+                    // Speech Recognition
                     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                         core.recognition = new SpeechRecognition();
@@ -286,36 +874,26 @@
 
                         core.recognition.onstart = () => { 
                             if(core.isRecordingResponse) document.getElementById('txt-listening').style.display = 'block';
-                            else document.getElementById('voice-txt').innerText = app.lang==='ar' ? "استماع..." : "Listening..."; 
+                            else document.getElementById('voice-txt').innerText = app.lang==='ar'?"استماع...":"Listening..."; 
                         };
 
                         core.recognition.onresult = (event) => {
                             if(core.aiIsSpeaking) return; 
-
                             const transcript = Array.from(event.results).map(r => r[0].transcript).join('').toLowerCase();
-
                             if (!core.isRecordingResponse) {
                                 document.getElementById('voice-txt').innerText = `"${transcript.split(' ').pop()}"`;
                                 CONFIG.TEXT[app.lang].triggers.forEach(word => {
-                                    // تسجيل استغاثة صوتية حديثة لاستخدامها ضمن التقييم
-                                    if (transcript.includes(word)) {
-                                        core.recentVoiceDistressAt = Date.now();
-                                        core.lastVoiceKeyword = word;
-                                        core.triggerAlarm(word);
-                                    }
+                                    if (transcript.includes(word)) { core.triggerAlarm(word); }
                                 });
-                            } 
-                            else {
+                            } else {
                                 const latest = event.results[event.results.length - 1][0].transcript;
                                 core.patientResponse = latest; 
                                 document.getElementById('txt-ai-question').innerText = `"${latest}"`; 
                             }
                         };
-
                         core.recognition.onend = () => { 
                             if(core.active || core.isRecordingResponse) core.recognition.start(); 
                         };
-
                         core.recognition.start();
                     }
 
@@ -326,163 +904,111 @@
 
                     core.active = true;
                     ui.btnUpdate(true);
-                } catch(e) { alert("Microphone Required"); }
+
+                    // Send notification
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('MIMO Guardian', { 
+                            body: app.lang === 'ar' ? 'الحماية مفعلة' : 'Guard Active',
+                            icon: 'https://flagcdn.com/w40/eg.png'
+                        });
+                    }
+
+                } catch(e) { alert("Permissions Required"); }
             },
 
             stop: () => {
                 core.active = false;
                 core.isRecordingResponse = false;
-                core.microTremorsBuffer = [];
-                core.motionHistory = [];
-                core.preFallWindow = [];
-                core.recentVoiceDistressAt = 0;
-                core.lastVoiceKeyword = "";
-                core.impactDetectedAt = 0;
-                core.recoveryDetected = false;
                 ui.btnUpdate(false);
                 if(core.recognition) core.recognition.abort();
                 window.removeEventListener('devicemotion', core.handleMotion);
+                window.removeEventListener('deviceorientation', gyroManager.handleOrientation);
                 document.getElementById('voice-txt').innerText = CONFIG.TEXT[app.lang].voice_inactive;
+                audioManager.isListening = false;
+                wakeLockManager.release();
             },
 
-            // خوارزمية: سقوط حر -> ارتطام -> تهدئة -> تحليل الاهتزازات الدقيقة -> قرار نهائي
             handleMotion: (e) => {
                 if(!core.active) return;
+                const acc = e.acceleration; 
+                if (!acc) {
+                    const accG = e.accelerationIncludingGravity;
+                    if (!accG) return;
+                    const totalG = Math.sqrt(accG.x**2 + accG.y**2 + accG.z**2);
+                    const estimated = Math.max(0, totalG - 9.8);
+                    core.processMotionData(estimated, e);
+                    return;
+                }
+                const total = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+                core.processMotionData(total, e);
+            },
 
-                const acc = e.accelerationIncludingGravity;
-                if(!acc) return;
-
-                const x = acc.x || 0;
-                const y = acc.y || 0;
-                const z = acc.z || 0;
-
-                const rawTotal = Math.sqrt(x**2 + y**2 + z**2);
-                const totalG = rawTotal / 9.8;
-                document.getElementById('val-mov').innerText = totalG.toFixed(1);
-
+            processMotionData: (total, e) => {
                 const now = Date.now();
                 const state = core.fallState;
+                const cfg = CONFIG.FALL;
+                const gForce = (total / 9.8).toFixed(2);
+                document.getElementById('val-mov').innerText = gForce;
 
-                // حفظ الحركة السابقة لبناء خط أساس قبل السقوط
-                core.motionHistory.push({ t: now, g: totalG });
-                core.motionHistory = core.motionHistory.filter(sample => now - sample.t <= core.motionHistoryWindowMs);
+                state.history.push({ total, time: now });
+                if (state.history.length > 50) state.history.shift();
+                if (total > 100) return;
 
-                // 1) السقوط الحر
-                if (state.phase === 'idle' && totalG < 0.4) {
-                    state.phase = 'freefall';
-                    state.timestamp = now;
-                    core.preFallWindow = core.motionHistory
-                        .filter(sample => now - sample.t <= 10000)
-                        .map(sample => sample.g);
-                    return;
+                // ✅ تحسين: دمج Gyroscope في كشف السقوط
+                const gyroConfirmed = core.gyroData && 
+                    (now - core.gyroData.timestamp < 500) && 
+                    core.gyroData.delta > cfg.GYRO_FALL_THRESHOLD;
+
+                // المرحلة 1: السقوط الحر
+                if (state.phase === 'idle' && total < cfg.FREEFALL_THRESHOLD) { 
+                    state.phase = 'freefall'; 
+                    state.timestamp = now; 
+                    state.maxImpact = 0;
+                    state.silenceSamples = 0;
                 }
-
-                // 2) الارتطام
-                if (state.phase === 'freefall') {
-                    if (now - state.timestamp > 1500) {
-                        state.phase = 'idle';
-                        return;
-                    }
-
-                    if (totalG > 2.5) {
-                        state.phase = 'settling';
+                // المرحلة 2: الارتطام
+                else if (state.phase === 'freefall') {
+                    if (now - state.timestamp > cfg.FREEFALL_TIMEOUT) { state.phase = 'idle'; }
+                    else if (total > cfg.IMPACT_THRESHOLD) {
+                        state.phase = 'impact';
                         state.timestamp = now;
-                        core.impactDetectedAt = now;
-                        core.microTremorsBuffer = [];
-                        core.recoveryDetected = false;
+                        state.maxImpact = total;
+                        state.silenceSamples = 0;
                     }
-                    return;
                 }
+                // المرحلة 3: السكون مع تأكيد Gyroscope
+                else if (state.phase === 'impact') {
+                    if (total > state.maxImpact) state.maxImpact = total;
+                    if (total < cfg.SILENCE_THRESHOLD) state.silenceSamples++;
+                    else state.silenceSamples = 0;
 
-                // 3) تهدئة قصيرة بعد الارتطام حتى لا تُحسب ارتدادات الارتطام كحركة إرادية
-                if (state.phase === 'settling') {
-                    if (totalG > 1.8) {
-                        core.recoveryDetected = true;
-                    }
+                    // ✅ تحسين: تأكيد إضافي من Gyroscope
+                    const confirmed = state.silenceSamples >= cfg.SILENCE_SAMPLE_COUNT;
+                    const gyroFall = gyroConfirmed || !core.gyroData; // If no gyro, rely on accel only
 
-                    if (now - state.timestamp >= 500) {
-                        state.phase = 'monitoring';
-                        state.timestamp = now;
-                        core.microTremorsBuffer = [];
-                    }
-                    return;
-                }
-
-                // 4) تسجيل الاهتزازات الدقيقة وتحليل خط الأساس قبل السقوط
-                if (state.phase === 'monitoring') {
-                    core.microTremorsBuffer.push(totalG);
-
-                    if (totalG > 1.8) {
-                        core.recoveryDetected = true;
-                    }
-
-                    if (now - state.timestamp >= 2000) {
-                        const samples = core.microTremorsBuffer.length ? core.microTremorsBuffer : [totalG];
-                        const maxG = Math.max(...samples);
-                        const minG = Math.min(...samples);
-                        const tremorRange = maxG - minG;
-                        const avgG = samples.reduce((sum, v) => sum + v, 0) / samples.length;
-
-                        const preSamples = (core.preFallWindow || []).filter(g => Number.isFinite(g));
-                        const preAvg = preSamples.length ? preSamples.reduce((sum, v) => sum + v, 0) / preSamples.length : 0;
-                        const prePeak = preSamples.length ? Math.max(...preSamples) : 0;
-
-                        const recentVoiceDistress = core.recentVoiceDistressAt && (now - core.recentVoiceDistressAt <= 30000);
-
-                        // نظام درجات: سقوط مؤكد + استقرار بعد الارتطام + تحليل ما قبل السقوط + الاستغاثة الصوتية
-                        let analysisScore = 45;
-
-                        // تحليل الاهتزازات الدقيقة بعد الارتطام
-                        if (tremorRange < 0.02) {
-                            analysisScore -= 25; // غالبًا سقوط هاتف فقط على سطح صلب
-                        } else if (tremorRange < 0.8) {
-                            analysisScore += 35; // اهتزازات دقيقة قد تدل على ضعف حركة / فقدان وعي
-                        } else {
-                            analysisScore -= 10; // حركة كبيرة تميل لكونها حركة إرادية أو إعادة التقاط الهاتف
-                        }
-
-                        // تحليل الحركة قبل السقوط للتمييز بين سقوط الهاتف من مكان ساكن وسقوط العامل أثناء الحركة
-                        if (preSamples.length >= 5) {
-                            if (preAvg < 0.08 && prePeak < 0.25) {
-                                analysisScore -= 30; // الهاتف كان ساكنًا غالبًا على سطح أو جيب ثابت
-                            } else if (preAvg < 0.18 && prePeak < 0.45) {
-                                analysisScore += 5;  // حركة بسيطة
-                            } else if (preAvg < 0.45) {
-                                analysisScore += 15; // حركة بشرية واضحة
-                            } else {
-                                analysisScore += 25; // نشاط قوي قبل السقوط
-                            }
-                        }
-
-                        // تعزيزات/خصومات إضافية
-                        if (avgG >= 0.85 && avgG <= 1.15) analysisScore += 8;
-                        if (core.recoveryDetected) analysisScore -= 20;
-                        if (maxG > 2.2) analysisScore -= 10;
-                        if (recentVoiceDistress) analysisScore += 20;
-                        if (tremorRange >= 0.02 && tremorRange < 0.8 && preAvg < 0.08 && prePeak < 0.25) analysisScore += 15;
-
+                    if (confirmed && gyroFall) {
                         state.phase = 'idle';
-                        core.microTremorsBuffer = [];
-                        core.recoveryDetected = false;
-                        core.impactDetectedAt = 0;
-                        core.preFallWindow = [];
-
-                        if (analysisScore >= 55) {
-                            core.triggerAlarm(app.lang === 'ar' ? 'سقوط وفقدان وعي (مؤكد)' : 'Confirmed Fall & Unconsciousness');
-                        } else {
-                            ui.toast(app.lang === 'ar' ? 'تجاهل: سقوط هاتف أو حركة غير حرجة' : 'Ignored: Phone Drop or Non-critical Motion');
-                        }
+                        core.triggerAlarm(app.lang==='ar' ? 
+                            `سقوط مؤكد (${state.maxImpact.toFixed(1)}m/s²)` : 
+                            `Confirmed Fall (${state.maxImpact.toFixed(1)}m/s²)`);
+                    } else if (total > cfg.IMPACT_CANCEL_THRESHOLD && state.silenceSamples < 3) {
+                        state.phase = 'idle';
                     }
                 }
+
+                // Log to DB
+                dbManager.saveSensorLog({ type: 'motion', total, g: gForce, gyro: core.gyroData });
             },
 
             sim: (type) => {
                 if(!core.active) return ui.toast(app.lang==='ar'?"فعل النظام أولاً":"Activate System First");
                 if(type === 'voice') {
-                    document.getElementById('voice-txt').innerText = app.lang==='ar' ? "مساعدة!" : "Help!";
+                    document.getElementById('voice-txt').innerText = app.lang==='ar'?"مساعدة!":"Help!";
                     setTimeout(() => core.triggerAlarm(app.lang==='ar'?"استغاثة":"Help Call"), 800);
                 } else if(type === 'fall') {
                     core.triggerAlarm(app.lang==='ar'?"سقوط وسكون (تجربة)":"Fall & Stillness");
+                } else if(type === 'scream') {
+                    core.triggerAlarm(app.lang==='ar'?"صراخ (تجربة)":"Scream Test");
                 }
             },
 
@@ -493,7 +1019,6 @@
                 msg.volume = 1; 
                 msg.rate = app.lang === 'ar' ? 1.25 : 1.1;
                 msg.pitch = 1.05;
-
                 if(onEndCallback) {
                     msg.onend = onEndCallback;
                     msg.onerror = onEndCallback; 
@@ -501,7 +1026,7 @@
                 window.speechSynthesis.speak(msg);
             },
 
-            triggerAlarm: (reason) => {
+            triggerAlarm: async (reason) => {
                 if(document.getElementById('doctor-screen').classList.contains('active')) return;
 
                 core.active = false; 
@@ -513,7 +1038,6 @@
 
                 app.showScreen('doctor-screen');
                 document.getElementById('txt-alert-header').innerText = `🚨 ${reason} 🚨`;
-
                 document.getElementById('ai-container').style.display = 'none';
                 document.getElementById('question-area').style.display = 'block';
                 document.getElementById('txt-assurance').style.display = 'none';
@@ -526,90 +1050,121 @@
 
                 core.speakText(CONFIG.TEXT[app.lang].ai_ask, () => {
                     if(!document.getElementById('doctor-screen').classList.contains('active')) return;
-
                     core.aiIsSpeaking = false; 
-
                     document.getElementById('txt-listening').style.display = 'block';
                     let c = 10; 
                     countEl.innerText = c;
                     countEl.style.display = 'flex';
 
                     core.countdownTimer = setInterval(() => {
-                        c--;
-                        countEl.innerText = c;
-
+                        c--; countEl.innerText = c;
                         if(c <= 0) {
                             clearInterval(core.countdownTimer);
                             countEl.style.display = 'none';
                             document.getElementById('txt-listening').style.display = 'none';
-
                             ui.toast(CONFIG.TEXT[app.lang].connecting);
-
-                            if (navigator.geolocation) {
-                                navigator.geolocation.getCurrentPosition(
-                                    (position) => {
-                                        const lat = position.coords.latitude;
-                                        const long = position.coords.longitude;
-                                        const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
-                                        core.sendWebhook(reason, mapLink);
-                                    },
-                                    () => { core.sendWebhook(reason, "GPS Unavailable"); },
-                                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-                                );
-                            } else {
-                                core.sendWebhook(reason, "No GPS Support");
-                            }
+                            core.dispatchAlert(reason);
                         }
                     }, 1000);
                 });
 
                 if(navigator.vibrate) navigator.vibrate([500, 200, 500]);
+
+                // Notification even if screen locked
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('🚨 MIMO ALERT', { 
+                        body: reason,
+                        requireInteraction: true,
+                        vibrate: [500, 200, 500]
+                    });
+                }
             },
 
-            sendWebhook: (reason, locationData) => {
-                let statusMsg = "";
-                let responseText = core.patientResponse.trim();
+            // ✅ تحسين: إرسال متعدد القنوات (Webhook + Mesh + Offline Storage)
+            dispatchAlert: async (reason) => {
+                let locationData = "GPS Unavailable";
 
-                if (responseText.length > 2) {
-                    statusMsg = `Patient Response: "${responseText}"`; 
-                } else {
-                    statusMsg = "⚠️ NO RESPONSE (Possible Unconsciousness)"; 
+                if (navigator.geolocation) {
+                    try {
+                        const position = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, 
+                                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+                        });
+                        const lat = position.coords.latitude;
+                        const long = position.coords.longitude;
+                        locationData = `https://www.google.com/maps?q=${lat},${long}`;
+                    } catch(e) {}
                 }
 
-                fetch(CONFIG.WEBHOOK_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        alert: reason,
-                        user: app.user,
-                        email: app.targetEmail, 
-                        lang: app.lang,
-                        location: locationData,
-                        ai_summary: statusMsg 
-                    })
-                }).then(() => {
-                    ui.toast(CONFIG.TEXT[app.lang].sent);
-                    if(navigator.vibrate) navigator.vibrate([200]);
+                const alertPayload = {
+                    alert: reason,
+                    user: app.user,
+                    email: app.targetEmail, 
+                    lang: app.lang,
+                    location: locationData,
+                    ai_summary: core.patientResponse.length > 2 ? 
+                        `Patient Response: "${core.patientResponse}"` : 
+                        "⚠️ NO RESPONSE (Possible Unconsciousness)",
+                    fall_data: core.fallState.maxImpact > 0 ? {
+                        max_impact: core.fallState.maxImpact,
+                        impact_g: (core.fallState.maxImpact / 9.8).toFixed(2)
+                    } : null,
+                    audio_level: core.audioLevel,
+                    gyro_data: core.gyroData,
+                    battery: batteryManager.battery ? batteryManager.battery.level : null,
+                    network: networkManager.connectionType,
+                    timestamp: new Date().toISOString()
+                };
 
-                    core.provideFirstAid();
+                // Strategy 1: Try Webhook (Internet)
+                let sentViaInternet = false;
+                if (networkManager.isOnline) {
+                    try {
+                        await fetch(CONFIG.WEBHOOK_URL, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(alertPayload)
+                        });
+                        sentViaInternet = true;
+                        ui.toast(CONFIG.TEXT[app.lang].sent);
+                    } catch(e) {
+                        console.log('Webhook failed, trying mesh...');
+                    }
+                }
 
-                }).catch(() => {
-                    ui.toast("⚠️ Connection Error");
-                });
+                // Strategy 2: Try Bluetooth Mesh (if internet failed or offline)
+                let sentViaMesh = false;
+                if (!sentViaInternet) {
+                    sentViaMesh = await meshManager.broadcastToMesh(alertPayload);
+                    if (sentViaMesh) {
+                        ui.toast(app.lang === 'ar' ? '✅ تم الإرسال عبر شبكة Mesh' : '✅ Sent via Mesh Network');
+                    }
+                }
+
+                // Strategy 3: Store locally for later sync
+                if (!sentViaInternet && !sentViaMesh) {
+                    await dbManager.saveAlert(alertPayload);
+                    ui.toast(app.lang === 'ar' ? '💾 تم الحفظ محلياً - سيتم الإرسال لاحقاً' : '💾 Saved locally - will send when online');
+
+                    // Request background sync
+                    if (swManager.registration && 'sync' in swManager.registration) {
+                        await swManager.registration.sync.register('send-alert');
+                    }
+                }
+
+                if(navigator.vibrate) navigator.vibrate([200]);
+                core.provideFirstAid();
             },
 
             provideFirstAid: () => {
                 core.isRecordingResponse = false; 
                 document.getElementById('question-area').style.display = 'none';
-
                 const assuranceDiv = document.getElementById('txt-assurance');
                 assuranceDiv.style.display = 'block';
-
                 core.aiIsSpeaking = true;
                 core.speakText(CONFIG.TEXT[app.lang].assurance_speak, () => {
                     core.aiIsSpeaking = false;
                 });
-
                 setTimeout(() => {
                     document.getElementById('ai-container').style.display = 'block';
                 }, 2000); 
@@ -620,38 +1175,46 @@
                 clearInterval(core.countdownTimer);
                 app.showScreen('app-container');
                 document.querySelectorAll('.data-item').forEach(e => e.classList.remove('warning-border'));
-                core.fallState.phase = 'idle'; 
-                core.microTremorsBuffer = [];
-                core.motionHistory = [];
-                core.preFallWindow = [];
-                core.recentVoiceDistressAt = 0;
-                core.lastVoiceKeyword = "";
-                core.impactDetectedAt = 0;
-                core.recoveryDetected = false;
+                core.fallState = { phase: 'idle', timestamp: 0, silenceSamples: 0, maxImpact: 0, history: [] };
                 core.isRecordingResponse = false;
                 core.aiIsSpeaking = false; 
-
                 document.getElementById('val-status').innerText = CONFIG.TEXT[app.lang].secure;
                 document.getElementById('val-status').style.color = "var(--green)";
-
                 document.querySelector('.widget-area').style.display = 'none';
                 document.getElementById('txt-assurance').style.display = 'none';
                 document.getElementById('question-area').style.display = 'block';
-
                 core.start();
             }
         };
+
+        // ==================== UI ====================
         const ui = {
-            toast: (msg) => { const t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = 1; setTimeout(() => t.style.opacity = 0, 3000); },
+            toast: (msg) => { 
+                const t = document.getElementById('toast'); 
+                t.innerText = msg; 
+                t.style.opacity = 1; 
+                setTimeout(() => t.style.opacity = 0, 3000); 
+            },
             btnUpdate: (active) => {
                 const btn = document.getElementById('btn-toggle');
                 const t = CONFIG.TEXT[app.lang];
-                if(active) { btn.classList.add('active'); btn.innerHTML = `<i class="fas fa-shield-alt"></i> <span>${t.active_btn}</span>`; }
-                else { btn.classList.remove('active'); btn.innerHTML = `<i class="fas fa-power-off"></i> <span>${t.start_btn}</span>`; }
+                if(active) { 
+                    btn.classList.add('active'); 
+                    btn.innerHTML = `<i class="fas fa-shield-alt"></i> <span>${t.active_btn}</span>`; 
+                } else { 
+                    btn.classList.remove('active'); 
+                    btn.innerHTML = `<i class="fas fa-power-off"></i> <span>${t.start_btn}</span>`; 
+                }
             }
         };
 
-        window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = 0; setTimeout(()=>app.showScreen('lang-screen'), 400); }, 2000); };
+        // ==================== INIT ====================
+        window.onload = () => { 
+            setTimeout(() => { 
+                document.getElementById('splash').style.opacity = 0; 
+                setTimeout(()=>app.showScreen('lang-screen'), 400); 
+            }, 2000); 
+        };
     </script>
 </body>
 </html>
