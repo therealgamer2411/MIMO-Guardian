@@ -72,8 +72,9 @@
         .auth-subtitle { font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-bottom: 24px; }
         .input-field { width: 100%; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text); font-size: 1rem; margin-bottom: 12px; text-align: center; transition: border-color 0.3s; font-family: inherit; }
         .input-field:focus { border-color: var(--primary); }
-        .btn-primary { width: 100%; padding: 16px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-weight: 700; font-size: 1.05rem; cursor: pointer; transition: all 0.3s; margin-top: 8px; font-family: inherit; }
+        .btn-primary { width: 100%; padding: 16px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-weight: 700; font-size: 1.05rem; cursor: pointer; transition: all 0.3s; margin-top: 8px; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
         .auth-note { font-size: 0.75rem; color: var(--text-tertiary); text-align: center; margin-top: 16px; line-height: 1.5; }
 
         /* Main App */
@@ -235,7 +236,9 @@
             <div class="auth-subtitle" id="auth-subtitle">Configure your safety profile</div>
             <input type="text" id="auth-user" class="input-field" placeholder="Your Name">
             <input type="email" id="auth-email" class="input-field" placeholder="Email Address (For Alerts)">
-            <button class="btn-primary" id="auth-btn" onclick="AppBootstrap.login()">Save & Start</button>
+            <button class="btn-primary" id="auth-btn" onclick="AppBootstrap.login()">
+                <i class="fas fa-microphone"></i> <span id="auth-btn-text">Save & Start</span>
+            </button>
             <div class="auth-note" id="auth-note">* Live emergency report will be sent to this email</div>
         </div>
     </div>
@@ -261,7 +264,7 @@
                         <div class="sensor-label" id="lbl-status">Worker Status</div>
                     </div>
                     <div class="sensor-cell" id="cell-gforce">
-                        <div class="sensor-value cyan" id="val-gforce">0.00</div>
+                        <div class="sensor-value cyan" id="val-gforce">1.00</div>
                         <div class="sensor-label">G-Force</div>
                     </div>
                     <div class="sensor-cell" id="cell-voice" style="grid-column:span 2;">
@@ -410,7 +413,6 @@
             <div class="card-header"><div class="card-title">Speaker Profile</div></div>
             <div class="ai-row"><span class="ai-label">Enrolled</span><span class="ai-value" id="spk-enrolled">No</span></div>
             <div class="ai-row"><span class="ai-label">Similarity</span><span class="ai-value" id="spk-sim">--</span></div>
-            <button class="btn-primary" style="margin-top:12px;font-size:0.9rem;" onclick="GuardianVoiceAI.enrollSpeaker()">Enroll Voice</button>
         </div>
     </div>
 
@@ -425,7 +427,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CONFIG = {
-    VERSION: "X.0.1",
+    VERSION: "X.0.3",
     WEBHOOK_URL: "https://hook.eu1.make.com/booixboep6okeq0ypcgrbihbtq45emg7",
     AGENT_IDS: { ar: "agent_5601kfrvwrrxfxgafkezx421fe01", en: "agent_5601kfrvwrrxfxgafkezx421fe01" },
     SAMPLING_RATE: 50, // Hz
@@ -460,7 +462,8 @@ const CONFIG = {
     TEXT: {
         ar: {
             login_title: "إعدادات الطوارئ", user_ph: "اسمك", email_ph: "البريد الإلكتروني (لتلقي الإنذار)",
-            auth_note: "* سيتم إرسال تقرير الطوارئ اللحظي إلى هذا الإيميل", login_btn: "حفظ وبدء النظام",
+            auth_note: "* سيتم إرسال التقرير لهذا الإيميل. سيطلب النظام تسجيل صوتك (لمدة 3 ثوانٍ) في هذه الخطوة لتمييز بصمتك الصوتية وقت الطوارئ.", 
+            login_btn: "تسجيل بصمة الصوت والبدء",
             live_sensors: "المؤشرات الحيوية", voice_label: "تحليل الاستغاثة الصوتي", voice_inactive: "غير نشط",
             status_label: "حالة العامل", secure: "مستقر", danger: "خطر", start_btn: "تفعيل الحماية",
             active_btn: "النظام نشط", keywords: 'الكلمات المفتاحية: "مساعدة"، "دكتور"، "طوارئ"، "إسعاف"',
@@ -478,7 +481,8 @@ const CONFIG = {
         },
         en: {
             login_title: "Emergency Setup", user_ph: "Your Name", email_ph: "Email Address (For Alerts)",
-            auth_note: "* Live emergency report will be sent to this email", login_btn: "Save & Start",
+            auth_note: "* Report sent to this email. The system will record your voice (3s) now to create your acoustic footprint for emergencies.", 
+            login_btn: "Record Voice & Start",
             live_sensors: "Live Biomarkers", voice_label: "Voice Distress Analysis", voice_inactive: "Inactive",
             status_label: "Worker Status", secure: "Secure", danger: "Danger", start_btn: "Activate Guard",
             active_btn: "System Active", keywords: 'Keywords: "Help", "Doctor", "Emergency", "Mimo"',
@@ -682,11 +686,12 @@ const GuardianSensorFusion = {
     dispose() {
         this._buffer = []; this._lastFrame = null;
         if(this._micStream){this._micStream.getTracks().forEach(t=>t.stop());}
-        if(this._audioCtx){this._audioCtx.close();}
+        if(this._audioCtx){this._audioCtx.close(); this._audioCtx = null;}
         Object.values(this._filters).forEach(f=>f.reset&&f.reset());
     },
 
     async _initAudio() {
+        if(this._audioCtx) return; 
         try {
             this._audioCtx = new (window.AudioContext||window.webkitAudioContext)();
             this._analyser = this._audioCtx.createAnalyser();
@@ -697,7 +702,7 @@ const GuardianSensorFusion = {
             const src = this._audioCtx.createMediaStreamSource(stream);
             src.connect(this._analyser);
             this._quality.audio = 95;
-        } catch(e){ this._quality.audio = 0; }
+        } catch(e){ this._quality.audio = 0; console.error("Audio Init Failed:", e); }
     },
 
     _initProximity() {
@@ -802,7 +807,6 @@ const GuardianSensorFusion = {
         let cumsum = 0, rolloff = 0;
         for(let i=0;i<data.length;i++){ cumsum+=data[i]; if(cumsum>=total*0.85){rolloff=i;break;} }
         const bandwidth = Math.sqrt(data.reduce((a,b,i)=>a+b*Math.pow(i-centroid,2),0)/total);
-        // FIX: Mapping centroid directly to pitch for proper reading
         return { rms, spectralCentroid: centroid, flux: Math.abs(rms - (this._lastRms||0)), zcr, energy: rms, pitch: centroid, mfcc: [], bandwidth, rolloff, raw: Array.from(data) };
     },
 
@@ -814,12 +818,19 @@ const GuardianSensorFusion = {
 
         const acc = this._sensorState.acc;
         const totalAcc = Math.sqrt(acc.x*acc.x + acc.y*acc.y + acc.z*acc.z);
-        const gForce = this._filters.gForce.process(totalAcc / 9.81);
+        
+        // BUG FIX: Prevent Free-Fall False Positive when sensor is dead/0.00
+        let gForce = 1.0;
+        if (totalAcc > 0.05) {
+            gForce = this._filters.gForce.process(totalAcc / 9.81);
+        } else {
+            gForce = 1.0; // Fallback for 0.00 sensor flatline
+        }
 
         const gravity = 9.81;
-        const linearX = acc.x - (acc.x * gravity / totalAcc);
-        const linearY = acc.y - (acc.y * gravity / totalAcc);
-        const linearZ = acc.z - (acc.z * gravity / totalAcc);
+        const linearX = acc.x - (acc.x * gravity / (totalAcc || 1));
+        const linearY = acc.y - (acc.y * gravity / (totalAcc || 1));
+        const linearZ = acc.z - (acc.z * gravity / (totalAcc || 1));
         const linearTotal = Math.sqrt(linearX*linearX + linearY*linearY + linearZ*linearZ);
 
         const frame = {
@@ -1021,7 +1032,7 @@ const GuardianFeatureExtraction = {
         const vad = a.rms > 15;
         const speakerConfidence = v.active ? 0.8 : 0;
         const spectralFlux = Math.abs(a.spectralCentroid - this._prevCentroid);
-        return { rms: a.rms||0, pitch: a.pitch||0, energy: a.rms||0, spectralCentroid: a.spectralCentroid||0, spectralFlux, mfcc: [], breathingEnergy, stressScore, zcr: a.zcr||0, active: v.active||false, speakingRate, vad, speakerConfidence, bandwidth: a.bandwidth||0, rolloff: a.rolloff||0 };
+        return { rms: a.rms||0, pitch: v.pitch||0, energy: a.rms||0, spectralCentroid: a.spectralCentroid||0, spectralFlux, mfcc: [], breathingEnergy, stressScore, zcr: a.zcr||0, active: v.active||false, speakingRate, vad, speakerConfidence, bandwidth: a.bandwidth||0, rolloff: a.rolloff||0 };
     },
 
     _extractDevice(frame) {
@@ -1201,7 +1212,10 @@ const GuardianEvidenceEngine = {
         const evidence = [];
         const weights = this._getDynamicWeights(c.activity);
 
-        if(f.motion?.peakG < 0.5) evidence.push({ type: 'free_fall', confidence: 95, weight: weights.freeFall, raw: f.motion.peakG, source: 'accelerometer' });
+        // BUG FIX: Prevent Free-Fall False Positive
+        // Make sure peakG is actually coming from a real drop, not a dead sensor (0.00)
+        if(f.motion?.peakG < 0.5 && f.motion?.peakG > 0.05) evidence.push({ type: 'free_fall', confidence: 95, weight: weights.freeFall, raw: f.motion.peakG, source: 'accelerometer' });
+        
         if(f.motion?.peakG > 3.0) evidence.push({ type: 'impact', confidence: Math.min(99, f.motion.peakG * 15), weight: weights.impact, raw: f.motion.peakG, source: 'accelerometer' });
         if(f.motion?.peakG > 5.0) evidence.push({ type: 'severe_impact', confidence: 98, weight: weights.impact * 1.5, raw: f.motion.peakG, source: 'accelerometer' });
         if(f.stillness?.stillnessTime > 3) evidence.push({ type: 'stillness', confidence: Math.min(95, 50 + f.stillness.stillnessTime * 8), weight: weights.stillness, raw: f.stillness.stillnessTime, source: 'accelerometer' });
@@ -1263,7 +1277,6 @@ const GuardianConfidenceEngine = {
             if(recentAlerts > 2) historyBoost = Math.min(0.1, recentAlerts * 0.02);
         }
 
-        // Speaker verification boost
         let speakerBoost = 0;
         if(contextFeatures.voice?.speakerConfidence > 0.9) speakerBoost = 0.05;
 
@@ -1549,7 +1562,6 @@ const GuardianVoiceAI = {
         this._rec.lang = CONFIG.TEXT[AppBootstrap.lang].voice_lang;
         this._rec.onresult = (e) => this._onResult(e);
         
-        // FIX 3: Timeout added to prevent infinite loop errors
         this._rec.onend = () => { 
             if(GuardianKernel.active || GuardianResponse.isRecording()) {
                 setTimeout(() => {
@@ -1565,7 +1577,6 @@ const GuardianVoiceAI = {
         const transcript = Array.from(event.results).map(r => r[0].transcript).join('').toLowerCase();
         const latest = event.results[event.results.length-1][0].transcript;
 
-        // VAD + Speaker + Stress Analysis
         const audioFeatures = GuardianSensorFusion.getAudioFeatures();
         const embedding = this._extractVoiceEmbedding(audioFeatures);
         this._analyzeBreathing(audioFeatures);
@@ -1576,7 +1587,10 @@ const GuardianVoiceAI = {
         GuardianSensorFusion.onVoice({ active: true, transcript, pitch: audioFeatures.spectralCentroid, stress, similarity, breathing: this._getBreathingState() });
 
         if(!GuardianResponse.isRecording()) {
+            // Update Voice UI instantly with the spoken word
             GuardianUI.updateVoiceDisplay(`"${latest.split(' ').pop()}"`);
+            document.getElementById('val-voice').style.color = 'var(--primary)';
+            
             CONFIG.TEXT[AppBootstrap.lang].triggers.forEach(word => {
                 if(transcript.includes(word)) {
                     const decision = { shouldTrigger: true, state: CONFIG.FSM.CONFIRMED_EMERGENCY, incidentType: CONFIG.INCIDENT.MEDICAL_EMERGENCY, severity: 4, confidence: 0.85, context: { lastReading: { voice: { stressScore: stress } }, reasoning: [{ factor: 'voice_trigger', contribution: 85 }] }, timestamp: Date.now() };
@@ -1637,27 +1651,30 @@ const GuardianVoiceAI = {
         return 'normal';
     },
 
-    async enrollSpeaker() {
-        GuardianUI.toast(AppBootstrap.lang === 'ar' ? "تحدث لمدة 3 ثوانٍ..." : "Speak for 3 seconds...");
-        const samples = [];
-        const collect = setInterval(() => {
-            const audio = GuardianSensorFusion.getAudioFeatures();
-            // FIX 5: Validate raw audio before enrolling
-            if(audio && audio.raw && audio.raw.length > 0) {
-                samples.push(this._extractVoiceEmbedding(audio));
-            }
-        }, 100);
-        setTimeout(async () => {
-            clearInterval(collect);
-            if(samples.length === 0) {
-                 return GuardianUI.toast(AppBootstrap.lang === 'ar' ? "❌ فشل تسجيل الصوت" : "❌ Voice Enrollment Failed");
-            }
-            const avg = samples[0].map((_,i) => samples.reduce((a,s)=>a+s[i],0)/samples.length);
-            await GuardianBlackBox.saveVoiceEmbedding(avg);
-            this._enrolledEmbedding = avg;
-            GuardianUI.toast(AppBootstrap.lang === 'ar' ? "✅ تم تسجيل الصوت" : "✅ Voice Enrolled");
-            GuardianTestingLab.updateSpeaker(true, 100);
-        }, 3000);
+    enrollSpeaker() {
+        return new Promise((resolve) => {
+            GuardianUI.toast(AppBootstrap.lang === 'ar' ? "تحدث باستمرار لمدة 3 ثوانٍ..." : "Speak continuously for 3s...");
+            const samples = [];
+            const collect = setInterval(() => {
+                const audio = GuardianSensorFusion.getAudioFeatures();
+                if(audio && audio.raw && audio.raw.length > 0) {
+                    samples.push(this._extractVoiceEmbedding(audio));
+                }
+            }, 100);
+            setTimeout(async () => {
+                clearInterval(collect);
+                if(samples.length === 0) {
+                     GuardianUI.toast(AppBootstrap.lang === 'ar' ? "❌ لم يتم التقاط صوت" : "❌ No audio detected");
+                     resolve(false);
+                     return;
+                }
+                const avg = samples[0].map((_,i) => samples.reduce((a,s)=>a+s[i],0)/samples.length);
+                await GuardianBlackBox.saveVoiceEmbedding(avg);
+                this._enrolledEmbedding = avg;
+                GuardianTestingLab.updateSpeaker(true, 100);
+                resolve(true);
+            }, 3000);
+        });
     },
 
     getSimilarity() { return this._similarity; },
@@ -1934,7 +1951,6 @@ const GuardianKernel = {
 
     start() {
         this.init(); this.active = true;
-        // FIX 2: Autoplay safeguard backup
         if (GuardianSensorFusion._audioCtx && GuardianSensorFusion._audioCtx.state === 'suspended') {
             GuardianSensorFusion._audioCtx.resume();
         }
@@ -1958,19 +1974,34 @@ const GuardianKernel = {
         if(!this.active) return;
         this._frameCount++;
         GuardianPerformanceEngine.recordSample();
+        
         const lastFrame = SensorFusion.getLastFrame();
         if(!lastFrame) return;
+        
         const features = FeatureExtraction.extract(lastFrame);
         if(!features) return;
+        
         const context = ContextEngine.enrich(features);
         if(!context) return;
+        
         GuardianAdaptiveEngine.learn(context);
         const confidence = ConfidenceEngine.score(context);
         const decision = DecisionEngine.evaluate(confidence);
+        
         GuardianUI.updateContextPanel(context);
         GuardianUI.updateConfidencePanel(confidence, decision);
         GuardianUI.updateTimelinePanel();
         GuardianUI.updatePerformancePanel();
+        
+        // BUG FIX: Update Voice UI constantly based on background noise if it's not recognizing a specific word
+        if (features.voice && features.voice.rms > 2) {
+            GuardianUI.updateVoiceDisplay(AppBootstrap.lang === 'ar' ? `نشط (طاقة: ${Math.round(features.voice.rms)})` : `Active (RMS: ${Math.round(features.voice.rms)})`);
+            document.getElementById('val-voice').style.color = 'var(--green)';
+        } else {
+            GuardianUI.updateVoiceDisplay(AppBootstrap.lang === 'ar' ? "استماع..." : "Listening...");
+            document.getElementById('val-voice').style.color = 'var(--text-secondary)';
+        }
+
         if(decision.shouldTrigger && !AlertEngine._lastAlert) {
             AlertEngine.dispatch(decision);
         }
@@ -2018,7 +2049,7 @@ const GuardianUI = {
     },
 
     updateGForce(v) { document.getElementById('val-gforce').innerText = v.toFixed(2); },
-    updateVoiceDisplay(t) { document.getElementById('val-voice').innerText = t; document.getElementById('val-voice').style.color = 'var(--primary)'; },
+    updateVoiceDisplay(t) { document.getElementById('val-voice').innerText = t; },
     updateStatusDanger() { const el = document.getElementById('val-status'); el.innerText = CONFIG.TEXT[AppBootstrap.lang].danger; el.style.color = "var(--accent)"; document.getElementById('status-badge').innerText = 'DANGER'; document.getElementById('status-badge').className = 'card-badge badge-red'; },
     updateStatusSecure() { const el = document.getElementById('val-status'); el.innerText = CONFIG.TEXT[AppBootstrap.lang].secure; el.style.color = "var(--green)"; document.getElementById('status-badge').innerText = 'SECURE'; document.getElementById('status-badge').className = 'card-badge badge-green'; },
     setAlertHeader(r) { document.getElementById('txt-alert-header').innerText = `🚨 ${r} 🚨`; },
@@ -2135,7 +2166,7 @@ const AppBootstrap = {
         document.getElementById('auth-user').placeholder = t.user_ph;
         document.getElementById('auth-email').placeholder = t.email_ph;
         document.getElementById('auth-note').innerText = t.auth_note;
-        document.getElementById('auth-btn').innerText = t.login_btn;
+        document.getElementById('auth-btn-text').innerText = t.login_btn;
         document.getElementById('txt-live-sensors').innerText = t.live_sensors;
         document.getElementById('lbl-voice').innerText = t.voice_label;
         document.getElementById('val-voice').innerText = t.voice_inactive;
@@ -2157,23 +2188,62 @@ const AppBootstrap = {
         this.showScreen('auth-screen');
     },
 
-    login() {
+    async login() {
         const u = document.getElementById('auth-user').value;
         const e = document.getElementById('auth-email').value;
         if(u.length < 2) return GuardianUI.toast(this.lang === 'ar' ? "يرجى إدخال اسمك" : "Name Required");
         if(e.length < 5 || !e.includes('@')) return GuardianUI.toast(this.lang === 'ar' ? "يرجى إدخال إيميل صحيح" : "Valid Email Required");
         
-        // FIX 2: Unlock AudioContext and SpeechSynthesis on user gesture
-        if (GuardianSensorFusion._audioCtx && GuardianSensorFusion._audioCtx.state === 'suspended') {
-            GuardianSensorFusion._audioCtx.resume();
+        const btn = document.getElementById('auth-btn');
+        const originalText = document.getElementById('auth-btn-text').innerText;
+        btn.disabled = true;
+        document.getElementById('auth-btn-text').innerText = this.lang === 'ar' ? 'جاري تسجيل الصوت (3 ثوانٍ)...' : 'Recording Voice (3s)...';
+        btn.style.background = 'var(--accent)';
+
+        // BUG FIX: Request iOS / Android strict sensor permissions during user gesture
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            try { await DeviceOrientationEvent.requestPermission(); } catch(err){}
         }
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            try { 
+                const permissionState = await DeviceMotionEvent.requestPermission();
+                if (permissionState !== 'granted') GuardianUI.toast(this.lang === 'ar' ? "تنبيه: لم يتم تفعيل المستشعرات" : "Warning: Sensors denied");
+            } catch(err){}
+        }
+
+        await GuardianBlackBox.init();
+        GuardianSecurity.init();
+        
+        if (!GuardianSensorFusion._audioCtx) {
+            await GuardianSensorFusion._initAudio();
+        }
+        if (GuardianSensorFusion._audioCtx && GuardianSensorFusion._audioCtx.state === 'suspended') {
+            await GuardianSensorFusion._audioCtx.resume();
+        }
+        
         const silentMsg = new SpeechSynthesisUtterance('');
         silentMsg.volume = 0;
         window.speechSynthesis.speak(silentMsg);
 
         this.user = u; this.targetEmail = e;
-        this.showScreen('app-container');
-        GuardianUI.toast(this.lang === 'ar' ? `مرحباً ${u}` : `Welcome ${u}`);
+
+        const success = await GuardianVoiceAI.enrollSpeaker();
+        
+        if(success) {
+            btn.style.background = 'var(--green)';
+            document.getElementById('auth-btn-text').innerText = this.lang === 'ar' ? 'اكتمل التسجيل' : 'Voice Saved';
+            setTimeout(() => {
+                this.showScreen('app-container');
+                GuardianUI.toast(this.lang === 'ar' ? `مرحباً ${u}` : `Welcome ${u}`);
+                btn.disabled = false;
+                btn.style.background = 'var(--primary)';
+                document.getElementById('auth-btn-text').innerText = originalText;
+            }, 1200);
+        } else {
+            btn.disabled = false;
+            btn.style.background = 'var(--primary)';
+            document.getElementById('auth-btn-text').innerText = originalText;
+        }
     },
 
     showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
